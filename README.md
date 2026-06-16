@@ -161,6 +161,8 @@ Key concepts:
 - Fantasy-dollar trading only
 - Simulated AMM pricing
 - Real Polymarket connection for live market discovery
+- League whitelists / imported external markets
+- Trade intents that can later persist to Supabase
 - Admin settlement tools
 
 Main data entities:

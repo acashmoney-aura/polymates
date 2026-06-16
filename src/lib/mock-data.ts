@@ -1,12 +1,14 @@
 import type {
   Activity,
   LeagueConfig,
+  LeagueMarketApproval,
   LeagueMember,
   LeagueMode,
   Market,
   MarketSet,
   Position,
   ResolutionItem,
+  TradeIntent,
 } from './types'
 
 export const marketSets: MarketSet[] = [
@@ -86,10 +88,39 @@ export const markets: Market[] = [
   },
 ]
 
+export const marketApprovals: LeagueMarketApproval[] = [
+  { marketId: 'bra-mor', source: 'seed', approved: true, approvedAt: 'Today · 7:12 PM' },
+  { marketId: 'usa-par', source: 'seed', approved: true, approvedAt: 'Today · 7:14 PM' },
+  { marketId: 'arg-advance', source: 'seed', approved: true, approvedAt: 'Today · 7:20 PM' },
+]
+
 export const positions: Position[] = [
   { market: 'Will Brazil beat Morocco?', side: 'YES', shares: 100, avgPrice: 0.62, currentValue: '$66', pnl: '+$4' },
   { market: 'Will USA beat Paraguay?', side: 'NO', shares: 80, avgPrice: 0.41, currentValue: '$35', pnl: '+$2' },
   { market: 'Will Argentina advance?', side: 'YES', shares: 60, avgPrice: 0.69, currentValue: '$44', pnl: '+$3' },
+]
+
+export const tradeIntents: TradeIntent[] = [
+  {
+    id: 'intent-1',
+    marketTitle: 'Will Brazil beat Morocco?',
+    side: 'YES',
+    shares: 100,
+    estimatedCost: 66,
+    estimatedPrice: 66,
+    status: 'Filled',
+    createdAtLabel: '14 min ago',
+  },
+  {
+    id: 'intent-2',
+    marketTitle: 'Will USA beat Paraguay?',
+    side: 'NO',
+    shares: 80,
+    estimatedCost: 35,
+    estimatedPrice: 44,
+    status: 'Queued',
+    createdAtLabel: '4 min ago',
+  },
 ]
 
 export const activityFeed: Activity[] = [

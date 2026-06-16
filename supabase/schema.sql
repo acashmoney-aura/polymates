@@ -27,8 +27,16 @@ create table if not exists leagues (
   weekly_bonus numeric not null default 2000,
   mode text not null default 'season_league',
   invite_code text unique not null,
-  market_set_id uuid references market_sets(id) on delete set null,
   created_at timestamptz not null default now()
+);
+
+create table if not exists league_market_sets (
+  id uuid primary key default gen_random_uuid(),
+  league_id uuid not null references leagues(id) on delete cascade,
+  market_set_id uuid not null references market_sets(id) on delete cascade,
+  enabled boolean not null default true,
+  created_at timestamptz not null default now(),
+  unique (league_id, market_set_id)
 );
 
 create table if not exists league_members (
@@ -62,6 +70,35 @@ create table if not exists markets (
   resolved_outcome_id uuid,
   rules_text text,
   created_at timestamptz not null default now()
+);
+
+create table if not exists external_markets (
+  id uuid primary key default gen_random_uuid(),
+  source text not null,
+  external_id text not null,
+  title text not null,
+  stage_label text,
+  closes_label text,
+  yes_price numeric,
+  no_price numeric,
+  volume_label text,
+  raw_payload jsonb not null default '{}'::jsonb,
+  imported_at timestamptz not null default now(),
+  unique (source, external_id)
+);
+
+create table if not exists league_markets (
+  id uuid primary key default gen_random_uuid(),
+  league_id uuid not null references leagues(id) on delete cascade,
+  market_id uuid references markets(id) on delete cascade,
+  external_market_id uuid references external_markets(id) on delete cascade,
+  approved_by uuid references users(id) on delete set null,
+  approval_source text not null default 'manual',
+  status text not null default 'approved',
+  created_at timestamptz not null default now(),
+  check (
+    (market_id is not null) or (external_market_id is not null)
+  )
 );
 
 create table if not exists outcomes (
@@ -99,6 +136,23 @@ create table if not exists trades (
   created_at timestamptz not null default now()
 );
 
+create table if not exists trade_intents (
+  id uuid primary key default gen_random_uuid(),
+  league_id uuid not null references leagues(id) on delete cascade,
+  user_id uuid references users(id) on delete set null,
+  market_id uuid references markets(id) on delete cascade,
+  external_market_id uuid references external_markets(id) on delete cascade,
+  side text not null,
+  shares numeric not null,
+  estimated_price numeric not null,
+  estimated_cost numeric not null,
+  status text not null default 'draft',
+  created_at timestamptz not null default now(),
+  check (
+    (market_id is not null) or (external_market_id is not null)
+  )
+);
+
 create table if not exists market_price_history (
   id uuid primary key default gen_random_uuid(),
   market_id uuid not null references markets(id) on delete cascade,
@@ -117,6 +171,21 @@ create table if not exists league_snapshots (
   unrealized_pnl numeric not null default 0,
   rank integer,
   snapshot_time timestamptz not null default now()
+);
+
+create table if not exists settlement_actions (
+  id uuid primary key default gen_random_uuid(),
+  league_id uuid not null references leagues(id) on delete cascade,
+  market_id uuid references markets(id) on delete cascade,
+  external_market_id uuid references external_markets(id) on delete cascade,
+  result text,
+  action_type text not null,
+  note text,
+  created_by uuid references users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  check (
+    (market_id is not null) or (external_market_id is not null)
+  )
 );
 
 create table if not exists activity_feed (

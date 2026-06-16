@@ -327,7 +327,8 @@
 .notification-stack,
 .queue-stack,
 .import-stack,
-.resolution-stack {
+.resolution-stack,
+.intent-stack {
   margin-top: 16px;
 }
 
@@ -419,8 +420,10 @@
 .selectable-head,
 .import-row,
 .resolution-row,
+.intent-row,
 .import-actions,
-.resolution-actions {
+.resolution-actions,
+.ticket-actions {
   display: flex;
   justify-content: space-between;
   gap: 12px;
@@ -473,7 +476,8 @@
 .mode-stack,
 .activity-stack,
 .table-like-grid,
-.leaderboard-stack {
+.leaderboard-stack,
+.intent-stack {
   display: grid;
   gap: 12px;
   margin-top: 18px;
@@ -533,10 +537,22 @@
 }
 
 .position-row,
-.leaderboard-row {
+.leaderboard-row,
+.intent-row {
   display: flex;
   justify-content: space-between;
   gap: 16px;
+}
+
+.intent-row {
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 18px;
+  padding: 14px;
+}
+
+.ticket-actions {
+  justify-content: flex-start;
 }
 
 .compact-top {

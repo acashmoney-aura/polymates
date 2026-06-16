@@ -1,21 +1,16 @@
-import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 import logoMark from '/polymates-mark.svg'
-import { estimateBinaryTrade } from './lib/amm'
 import {
   activityFeed,
   leagueConfig,
   leagueMembers,
   leagueModes,
-  markets as fallbackMarkets,
   marketSets,
   positions,
-  resolutionQueue as resolutionQueueSeed,
 } from './lib/mock-data'
-import { fetchPolymarketMarkets } from './lib/polymarket'
+import { useLeagueRuntime } from './lib/league-runtime'
 import { productSpec } from './lib/product-spec'
-import { hasSupabaseEnv } from './lib/supabase'
-import type { Market, ResolutionItem } from './lib/types'
+import { describeRuntimeMode, hasSupabaseEnv } from './lib/supabase'
 
 const onboardingSteps = [
   'Sign in and claim a username',
@@ -42,89 +37,25 @@ function statusClass(status: string) {
 }
 
 function App() {
-  const [liveMarkets, setLiveMarkets] = useState<Market[]>([])
-  const [liveStatus, setLiveStatus] = useState<'loading' | 'live' | 'fallback'>('loading')
-  const [selectedSetSlugs, setSelectedSetSlugs] = useState<string[]>(leagueConfig.approvedSetSlugs)
-  const [whitelistedMarketIds, setWhitelistedMarketIds] = useState<string[]>([])
-  const [resolutionQueue, setResolutionQueue] = useState<ResolutionItem[]>(resolutionQueueSeed)
-  const [selectedMarketId, setSelectedMarketId] = useState(fallbackMarkets[0].id)
+  const {
+    runtimePersistenceMode,
+    liveStatus,
+    selectedSetSlugs,
+    approvals,
+    resolutionQueue,
+    tradeIntents,
+    selectedMarket,
+    discoveryMarkets,
+    leagueVisibleMarkets,
+    toggleMarketSet,
+    toggleMarketApproval,
+    updateResolution,
+    queueTrade,
+    setSelectedMarketId,
+  } = useLeagueRuntime()
 
-  useEffect(() => {
-    let cancelled = false
-
-    async function loadLiveMarkets() {
-      try {
-        const fetched = await fetchPolymarketMarkets()
-        if (cancelled) return
-        if (fetched.length > 0) {
-          setLiveMarkets(fetched)
-          setLiveStatus('live')
-          return
-        }
-        setLiveStatus('fallback')
-      } catch {
-        if (!cancelled) setLiveStatus('fallback')
-      }
-    }
-
-    void loadLiveMarkets()
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  const discoveryMarkets = liveMarkets.length > 0 ? liveMarkets : fallbackMarkets
-
-  useEffect(() => {
-    if (discoveryMarkets.length === 0 || whitelistedMarketIds.length > 0) return
-    setWhitelistedMarketIds(discoveryMarkets.slice(0, 3).map((market) => market.id))
-  }, [discoveryMarkets, whitelistedMarketIds.length])
-
-  const leagueVisibleMarkets = useMemo(() => {
-    const approved = discoveryMarkets.filter((market) => whitelistedMarketIds.includes(market.id))
-    return approved.length > 0 ? approved : discoveryMarkets
-  }, [discoveryMarkets, whitelistedMarketIds])
-
-  useEffect(() => {
-    if (!leagueVisibleMarkets.some((market) => market.id === selectedMarketId)) {
-      setSelectedMarketId(leagueVisibleMarkets[0]?.id ?? '')
-    }
-  }, [leagueVisibleMarkets, selectedMarketId])
-
-  const selectedMarket = useMemo(
-    () => leagueVisibleMarkets.find((market) => market.id === selectedMarketId) ?? leagueVisibleMarkets[0],
-    [leagueVisibleMarkets, selectedMarketId],
-  )
-
-  const tradePreview = useMemo(() => {
-    if (!selectedMarket) return null
-    return estimateBinaryTrade({
-      currentYesPrice: selectedMarket.yesPrice,
-      shares: 100,
-      side: 'YES',
-    })
-  }, [selectedMarket])
-
-  const approvedMarketCount = whitelistedMarketIds.length
+  const approvedMarketCount = approvals.filter((item) => item.approved).length
   const approvedSets = marketSets.filter((set) => selectedSetSlugs.includes(set.slug))
-
-  function toggleMarketSet(slug: string) {
-    setSelectedSetSlugs((current) =>
-      current.includes(slug) ? current.filter((item) => item !== slug) : [...current, slug],
-    )
-  }
-
-  function toggleWhitelistedMarket(marketId: string) {
-    setWhitelistedMarketIds((current) =>
-      current.includes(marketId) ? current.filter((item) => item !== marketId) : [...current, marketId],
-    )
-  }
-
-  function updateResolution(id: string, next: Partial<ResolutionItem>) {
-    setResolutionQueue((current) =>
-      current.map((item) => (item.id === id ? { ...item, ...next } : item)),
-    )
-  }
 
   return (
     <main className="app-shell">
@@ -137,7 +68,7 @@ function App() {
           <strong>Shipping the private-league MVP, not just a pretty mock.</strong>
         </div>
         <p>
-          Active scope: real Polymarket discovery, league market whitelisting, invite flow, and admin settlement.
+          Active scope: live Polymarket discovery, league whitelisting, invite flow, settlement controls, and backend-ready runtime state.
         </p>
       </section>
 
@@ -180,6 +111,7 @@ function App() {
             <small>
               Backend status: {hasSupabaseEnv ? 'Supabase env detected' : 'Supabase env scaffolded, credentials still needed'}
             </small>
+            <small>Runtime mode: {describeRuntimeMode()}</small>
             <small>
               Polymarket feed: {liveStatus === 'live' ? 'live Gamma API connection active' : liveStatus === 'loading' ? 'connecting…' : 'fallback mock feed active'}
             </small>
@@ -192,7 +124,7 @@ function App() {
               <p className="section-label">Default league shape</p>
               <h2>Private league + live discovery + admin controls</h2>
             </div>
-            <span className="status-chip open">MVP</span>
+            <span className="status-chip open">{runtimePersistenceMode === 'supabase' ? 'Connected' : 'MVP'}</span>
           </div>
           <div className="metric-row compact">
             <article className="metric-pill float-card">
@@ -203,7 +135,7 @@ function App() {
             <article className="metric-pill float-card">
               <strong>{approvedMarketCount}</strong>
               <span>League-approved markets</span>
-              <small>Whitelisted from the live feed</small>
+              <small>Backed by approval records</small>
             </article>
             <article className="metric-pill float-card">
               <strong>{approvedSets.length}</strong>
@@ -363,7 +295,8 @@ function App() {
           </div>
           <div className="import-stack">
             {discoveryMarkets.slice(0, 6).map((market) => {
-              const approved = whitelistedMarketIds.includes(market.id)
+              const approval = approvals.find((item) => item.marketId === market.id)
+              const approved = approval?.approved ?? false
               return (
                 <article key={market.id} className={`import-row ${approved ? 'selected' : ''}`}>
                   <div>
@@ -375,11 +308,7 @@ function App() {
                     <button type="button" className="mini-button" onClick={() => setSelectedMarketId(market.id)}>
                       Inspect
                     </button>
-                    <button
-                      type="button"
-                      className={`mini-button ${approved ? 'active' : ''}`}
-                      onClick={() => toggleWhitelistedMarket(market.id)}
-                    >
+                    <button type="button" className={`mini-button ${approved ? 'active' : ''}`} onClick={() => toggleMarketApproval(market)}>
                       {approved ? 'Approved' : 'Approve'}
                     </button>
                   </div>
@@ -402,13 +331,17 @@ function App() {
             ))}
           </div>
           <div className="queue-stack compact-top">
-            {leagueVisibleMarkets.slice(0, 4).map((market) => (
-              <article key={market.id} className="queue-card">
-                <strong>{market.yesPrice}¢ YES</strong>
-                <span>{market.title}</span>
-                <small>Approved for {leagueConfig.name}</small>
-              </article>
-            ))}
+            {approvals.filter((item) => item.approved).slice(0, 4).map((item) => {
+              const market = discoveryMarkets.find((candidate) => candidate.id === item.marketId)
+              if (!market) return null
+              return (
+                <article key={item.marketId} className="queue-card">
+                  <strong>{market.yesPrice}¢ YES</strong>
+                  <span>{market.title}</span>
+                  <small>{item.source} import · {item.approvedAt}</small>
+                </article>
+              )
+            })}
           </div>
         </aside>
       </section>
@@ -480,19 +413,18 @@ function App() {
             </article>
 
             <article className="subpanel trade-panel">
-              <p className="section-label">AMM preview</p>
+              <p className="section-label">Trade ticket</p>
               <div className="trade-preview">
-                <strong>Buy 100 YES shares</strong>
-                <p>Estimated with a simple MVP AMM, not an order book.</p>
-                {tradePreview && (
-                  <ul className="clean-list compact">
-                    <li>Entry price: {tradePreview.entryPrice}¢</li>
-                    <li>Post-trade estimate: {tradePreview.exitPriceEstimate}¢</li>
-                    <li>Estimated cost: ${tradePreview.cost}</li>
-                    <li>Max payout: ${tradePreview.maxPayout}</li>
-                    <li>Potential profit: ${tradePreview.maxProfit}</li>
-                  </ul>
-                )}
+                <strong>Queue a fantasy trade</strong>
+                <p>Orders now map to a backend-ready trade intent shape, with local fallback until Supabase keys land.</p>
+                <div className="ticket-actions compact-top">
+                  <button type="button" className="mini-button active" onClick={() => queueTrade('YES', 100)}>
+                    Queue 100 YES
+                  </button>
+                  <button type="button" className="mini-button" onClick={() => queueTrade('NO', 100)}>
+                    Queue 100 NO
+                  </button>
+                </div>
               </div>
             </article>
           </div>
@@ -507,6 +439,27 @@ function App() {
             <p className="body-copy">
               Only whitelisted markets are visible inside a league. Markets lock at start time and settle after the final result or defined event outcome.
             </p>
+          </article>
+
+          <article className="subpanel intent-panel">
+            <div className="subpanel-head">
+              <p className="section-label">Trade intent queue</p>
+              <span className="soft-chip">{runtimePersistenceMode} runtime</span>
+            </div>
+            <div className="intent-stack">
+              {tradeIntents.map((intent) => (
+                <article key={intent.id} className="intent-row">
+                  <div>
+                    <strong>{intent.marketTitle}</strong>
+                    <span>{intent.side} · {intent.shares} shares · {intent.createdAtLabel}</span>
+                  </div>
+                  <div>
+                    <strong>${intent.estimatedCost.toFixed(2)}</strong>
+                    <span>{intent.status} @ {intent.estimatedPrice}¢</span>
+                  </div>
+                </article>
+              ))}
+            </div>
           </article>
         </section>
 
@@ -628,7 +581,7 @@ function App() {
             </article>
             <article className="admin-card">
               <strong>Inspect trades</strong>
-              <p>Review league activity, suspicious flows, and mistaken settlements.</p>
+              <p>Review trade intents, suspicious flows, and mistaken settlements.</p>
             </article>
             <article className="admin-card">
               <strong>Reset / repair league state</strong>
@@ -672,7 +625,7 @@ function App() {
         </div>
         <p className="body-copy">
           Create a private league, approve the market sets you want, mirror or whitelist real Polymarket discovery,
-          trade fantasy-dollar contracts, and compete with friends on portfolio value.
+          queue fantasy trade intents, and compete with friends on portfolio value.
         </p>
       </section>
     </main>

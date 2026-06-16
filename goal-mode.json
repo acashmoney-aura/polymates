@@ -24,7 +24,7 @@
     "runtimePreference": "continue until done or truly blocked"
   },
   "status": "running",
-  "currentStep": "Build-check, commit, and push the goal-mode increment",
+  "currentStep": "Build-check, commit, and push the backend-shaped runtime increment",
   "plan": [
     "Wire live Polymarket discovery with graceful fallback",
     "Add league market-set selection and live-market whitelisting UX",
@@ -47,9 +47,11 @@
       "League-approved market sets remain configurable",
       "League creation and invite flow UI added",
       "Live market whitelist/import panel added",
-      "Admin settlement console added"
+      "Admin settlement console added",
+      "Runtime hook added for league approvals, settlement queue, and trade intents",
+      "Supabase schema expanded for external markets, league whitelists, trade intents, and settlement actions"
     ],
-    "nextStep": "Run build, then commit and push this increment",
+    "nextStep": "Commit and push the backend-shaped runtime increment, then move to real Supabase reads/writes when credentials are available",
     "blockers": []
   }
 }

@@ -68,3 +68,25 @@ export type ResolutionItem = {
   status: ResolutionStatus
   note: string
 }
+
+export type LeagueMarketApproval = {
+  marketId: string
+  source: 'polymarket' | 'seed'
+  approved: boolean
+  approvedAt: string
+}
+
+export type TradeIntentStatus = 'Draft' | 'Queued' | 'Filled'
+
+export type TradeIntent = {
+  id: string
+  marketTitle: string
+  side: 'YES' | 'NO'
+  shares: number
+  estimatedCost: number
+  estimatedPrice: number
+  status: TradeIntentStatus
+  createdAtLabel: string
+}
+
+export type RuntimePersistenceMode = 'local' | 'supabase'
