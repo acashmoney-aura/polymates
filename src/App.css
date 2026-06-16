@@ -1,0 +1,354 @@
+.app-shell {
+  width: min(1380px, calc(100% - 28px));
+  margin: 0 auto;
+  padding: 28px 0 48px;
+}
+
+.topbar,
+.hero-card,
+.panel,
+.subpanel {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  box-shadow: var(--shadow-soft);
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 20px;
+  padding: 28px 32px;
+  border-radius: 28px;
+  margin-bottom: 18px;
+}
+
+.topbar-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.topbar-badges span,
+.soft-chip,
+.status-chip {
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 0.86rem;
+}
+
+.topbar-badges span,
+.soft-chip {
+  color: var(--text-h);
+  border: 1px solid var(--border);
+  background: var(--chip-bg);
+}
+
+.hero-grid {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 18px;
+}
+
+.hero-card,
+.panel {
+  border-radius: 28px;
+}
+
+.hero-card {
+  padding: 28px;
+}
+
+.intro-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.metric-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 24px;
+}
+
+.metric-pill,
+.price-grid div,
+.composer-box,
+.friend-card,
+.activity-card,
+.signal-box,
+.watchlist-card {
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  border-radius: 20px;
+}
+
+.metric-pill {
+  padding: 18px;
+}
+
+.metric-pill strong,
+.price-grid strong,
+.confidence-copy strong {
+  display: block;
+  font-size: 1.5rem;
+  margin-bottom: 8px;
+  color: var(--text-h);
+}
+
+.metric-pill span,
+.price-grid span,
+.confidence-copy span,
+.watchlist-meta,
+.watchlist-footer,
+.activity-top span,
+.friend-card span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.metric-pill small {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted-strong);
+}
+
+.snapshot-head,
+.panel-head,
+.subpanel-head,
+.activity-top,
+.watchlist-meta,
+.watchlist-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.snapshot-head {
+  align-items: start;
+}
+
+.price-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 20px 0;
+}
+
+.price-grid div,
+.friend-card,
+.activity-card,
+.signal-box,
+.composer-box {
+  padding: 16px;
+}
+
+.positive {
+  color: #86efac;
+}
+
+.status-chip {
+  color: #08111f;
+  font-weight: 700;
+}
+
+.status-chip.accumulating {
+  background: linear-gradient(135deg, #86efac, #67e8f9);
+}
+
+.status-chip.watching {
+  background: linear-gradient(135deg, #fde68a, #f9a8d4);
+}
+
+.status-chip.debating {
+  background: linear-gradient(135deg, #c4b5fd, #93c5fd);
+}
+
+.confidence-block {
+  margin-bottom: 20px;
+}
+
+.confidence-copy {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  margin-bottom: 10px;
+}
+
+.confidence-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.confidence-bar div {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #8b5cf6 0%, #38bdf8 100%);
+}
+
+.workspace-grid {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr) 320px;
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.panel {
+  padding: 22px;
+}
+
+.watchlist-stack,
+.activity-stack {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.watchlist-card {
+  width: 100%;
+  text-align: left;
+  padding: 16px;
+  color: var(--text-h);
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    transform 0.18s ease,
+    background 0.18s ease;
+}
+
+.watchlist-card:hover,
+.watchlist-card.active {
+  border-color: rgba(125, 211, 252, 0.4);
+  transform: translateY(-1px);
+  background: rgba(20, 31, 51, 0.98);
+}
+
+.watchlist-card strong {
+  display: block;
+  margin: 12px 0;
+  font-size: 1rem;
+}
+
+.ghost-button {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-h);
+  border-radius: 999px;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 14px;
+  margin: 18px 0 14px;
+}
+
+.subpanel {
+  padding: 18px;
+}
+
+.clean-list {
+  margin: 14px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+}
+
+.clean-list li + li {
+  margin-top: 10px;
+}
+
+.clean-list.compact li + li {
+  margin-top: 8px;
+}
+
+.composer-box {
+  margin-top: 18px;
+}
+
+.composer-box span {
+  display: block;
+  color: var(--text-h);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.friends-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.friend-card strong {
+  display: block;
+  margin: 10px 0 8px;
+}
+
+.friend-card p,
+.activity-card p,
+.body-copy {
+  color: var(--muted);
+}
+
+.activity-card p span {
+  color: var(--text-h);
+}
+
+.signal-box {
+  margin-top: 18px;
+}
+
+.eyebrow,
+.section-label {
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.76rem;
+  color: var(--muted-strong);
+}
+
+@media (max-width: 1180px) {
+  .workspace-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-grid,
+  .friends-grid,
+  .hero-grid,
+  .metric-row,
+  .price-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .app-shell {
+    width: min(100%, calc(100% - 16px));
+    padding: 12px 0 28px;
+  }
+
+  .topbar,
+  .hero-card,
+  .panel,
+  .subpanel {
+    border-radius: 22px;
+  }
+
+  .topbar,
+  .hero-card,
+  .panel {
+    padding: 20px;
+  }
+
+  .topbar,
+  .panel-head,
+  .snapshot-head,
+  .subpanel-head {
+    flex-direction: column;
+    align-items: start;
+  }
+}

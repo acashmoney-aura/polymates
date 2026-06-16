@@ -1,0 +1,41 @@
+{
+  "id": "polymates-mvp-2026-06-15",
+  "title": "Polymates app-shell MVP",
+  "mode": "execution",
+  "goal": "Turn Polymates from a starter/landing page into a convincing product MVP for collaborative Polymarket tracking.",
+  "successCriteria": [
+    "Product is an app shell, not a starter page",
+    "Core surfaces exist: watchlist, market detail, catalysts, friend activity, and thesis tracking",
+    "UI feels coherent and demoable on desktop and mobile",
+    "Project builds successfully",
+    "Repo is isolated enough to commit and push cleanly"
+  ],
+  "constraints": {
+    "stack": "React + TypeScript + Vite",
+    "scope": "frontend MVP with mock data",
+    "externalWritesAllowed": [
+      "git push to GitHub"
+    ],
+    "approvalRequiredFor": [
+      "new external accounts/services beyond GitHub push"
+    ],
+    "runtimePreference": "continue until done or truly blocked"
+  },
+  "state": {
+    "status": "running",
+    "completed": [
+      "Inspected repo",
+      "Replaced starter with first-pass concept landing page",
+      "Upgraded to app-shell MVP with watchlist, market detail, catalysts, friend takes, and activity feed",
+      "Added local Goal Mode skill",
+      "Verified production build"
+    ],
+    "currentStep": "Isolate Polymates as its own repo and push it",
+    "nextStep": "Initialize repo, commit MVP, create GitHub repo, push"
+  },
+  "stopConditions": [
+    "Success criteria met",
+    "Blocked by missing credentials/repo destination",
+    "Build cannot be restored in bounded time"
+  ]
+}
