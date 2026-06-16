@@ -14,9 +14,11 @@ import {
   persistTradeIntent,
 } from './persistence'
 import { fetchPolymarketMarkets } from './polymarket'
+import { defaultRuntimeConfig } from './runtime-config'
 import { runtimePersistenceMode } from './supabase'
 import type {
   LeagueMarketApproval,
+  LeagueRuntimeContext,
   Market,
   ResolutionItem,
   RuntimeSyncState,
@@ -43,7 +45,14 @@ function makeTradeIntent(market: Market, side: 'YES' | 'NO', shares = 100): Trad
   }
 }
 
+const fallbackContext: LeagueRuntimeContext = {
+  leagueName: defaultRuntimeConfig.leagueName || leagueConfig.name,
+  inviteCode: defaultRuntimeConfig.inviteCode || leagueConfig.inviteCode,
+  viewerName: defaultRuntimeConfig.viewerName,
+}
+
 export function useLeagueRuntime() {
+  const [context, setContext] = useState<LeagueRuntimeContext>(fallbackContext)
   const [liveMarkets, setLiveMarkets] = useState<Market[]>([])
   const [liveStatus, setLiveStatus] = useState<'loading' | 'live' | 'fallback'>('loading')
   const [selectedSetSlugs, setSelectedSetSlugs] = useState<string[]>(leagueConfig.approvedSetSlugs)
@@ -90,9 +99,10 @@ export function useLeagueRuntime() {
         setSyncState({ level: 'syncing', message: 'Loading persisted runtime state from Supabase…' })
         const snapshot = await loadPersistedRuntimeSnapshot()
         if (cancelled || !snapshot) return
+        setContext(snapshot.context)
         if (snapshot.approvals.length > 0) setApprovals(snapshot.approvals)
         if (snapshot.tradeIntents.length > 0) setTradeIntents(snapshot.tradeIntents)
-        setSyncState({ level: 'synced', message: 'Hydrated approvals and trade intents from Supabase.' })
+        setSyncState({ level: 'synced', message: 'Hydrated league context, approvals, and trade intents from Supabase.' })
       } catch (error) {
         if (cancelled) return
         setSyncState({
@@ -181,6 +191,7 @@ export function useLeagueRuntime() {
     try {
       setSyncState({ level: 'syncing', message: `Saving market approval for ${market.title}…` })
       const result = await persistMarketApproval(market, nextApproved)
+      if (result.mode === 'supabase' && result.context) setContext(result.context)
       setSyncState({
         level: result.mode === 'supabase' ? 'synced' : 'idle',
         message: result.mode === 'supabase' ? `Saved ${market.title} approval to Supabase.` : 'Local runtime fallback active.',
@@ -206,6 +217,7 @@ export function useLeagueRuntime() {
     try {
       setSyncState({ level: 'syncing', message: `Saving settlement action for ${updatedItem.marketTitle}…` })
       const result = await persistSettlementAction(updatedItem)
+      if (result.mode === 'supabase' && result.context) setContext(result.context)
       setSyncState({
         level: result.mode === 'supabase' ? 'synced' : 'idle',
         message:
@@ -229,6 +241,7 @@ export function useLeagueRuntime() {
     try {
       setSyncState({ level: 'syncing', message: `Saving ${side} trade intent for ${selectedMarket.title}…` })
       const result = await persistTradeIntent(intent, selectedMarket)
+      if (result.mode === 'supabase' && result.context) setContext(result.context)
       setSyncState({
         level: result.mode === 'supabase' ? 'synced' : 'idle',
         message:
@@ -245,6 +258,7 @@ export function useLeagueRuntime() {
   }
 
   return {
+    context,
     runtimePersistenceMode,
     liveStatus,
     selectedSetSlugs,

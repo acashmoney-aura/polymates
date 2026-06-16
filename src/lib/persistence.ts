@@ -1,26 +1,39 @@
-import { leagueConfig } from './mock-data'
+import { defaultRuntimeConfig } from './runtime-config'
 import { supabase } from './supabase'
-import type { LeagueMarketApproval, Market, ResolutionItem, TradeIntent } from './types'
+import type {
+  LeagueMarketApproval,
+  LeagueRuntimeContext,
+  Market,
+  ResolutionItem,
+  TradeIntent,
+} from './types'
 
-const DEMO_LEAGUE_INVITE_CODE = leagueConfig.inviteCode
 const POLYMARKET_SOURCE = 'polymarket'
 
 type PersistedRuntimeSnapshot = {
+  context: LeagueRuntimeContext
   approvals: LeagueMarketApproval[]
   tradeIntents: TradeIntent[]
 }
 
-async function getLeagueId() {
+async function getLeagueContext(): Promise<LeagueRuntimeContext | null> {
   if (!supabase) return null
 
   const { data, error } = await supabase
     .from('leagues')
-    .select('id')
-    .eq('invite_code', DEMO_LEAGUE_INVITE_CODE)
+    .select('id, name, invite_code')
+    .eq('invite_code', defaultRuntimeConfig.inviteCode)
     .maybeSingle()
 
   if (error) throw error
-  return data?.id ?? null
+  if (!data) return null
+
+  return {
+    leagueId: data.id,
+    leagueName: data.name,
+    inviteCode: data.invite_code,
+    viewerName: defaultRuntimeConfig.viewerName,
+  }
 }
 
 async function ensureExternalMarket(market: Market) {
@@ -54,19 +67,19 @@ async function ensureExternalMarket(market: Market) {
 export async function loadPersistedRuntimeSnapshot(): Promise<PersistedRuntimeSnapshot | null> {
   if (!supabase) return null
 
-  const leagueId = await getLeagueId()
-  if (!leagueId) return null
+  const context = await getLeagueContext()
+  if (!context?.leagueId) return null
 
   const [{ data: approvalsData, error: approvalsError }, { data: intentsData, error: intentsError }] = await Promise.all([
     supabase
       .from('league_markets')
       .select('status, approval_source, created_at, external_markets!inner(external_id)')
-      .eq('league_id', leagueId)
+      .eq('league_id', context.leagueId)
       .not('external_market_id', 'is', null),
     supabase
       .from('trade_intents')
       .select('id, side, shares, estimated_price, estimated_cost, status, created_at, market_title, external_markets(external_id)')
-      .eq('league_id', leagueId)
+      .eq('league_id', context.leagueId)
       .order('created_at', { ascending: false })
       .limit(6),
   ])
@@ -85,7 +98,7 @@ export async function loadPersistedRuntimeSnapshot(): Promise<PersistedRuntimeSn
     id: row.id,
     marketId: row.external_markets?.external_id ?? undefined,
     marketTitle: row.market_title,
-    side: row.side,
+    side: row.side?.toUpperCase() === 'NO' ? 'NO' : 'YES',
     shares: Number(row.shares),
     estimatedCost: Number(row.estimated_cost),
     estimatedPrice: Number(row.estimated_price),
@@ -93,19 +106,19 @@ export async function loadPersistedRuntimeSnapshot(): Promise<PersistedRuntimeSn
     createdAtLabel: new Date(row.created_at).toLocaleString(),
   }))
 
-  return { approvals, tradeIntents }
+  return { context, approvals, tradeIntents }
 }
 
 export async function persistMarketApproval(market: Market, approved: boolean) {
   if (!supabase) return { mode: 'local' as const }
 
-  const leagueId = await getLeagueId()
-  if (!leagueId) return { mode: 'local' as const }
+  const context = await getLeagueContext()
+  if (!context?.leagueId) return { mode: 'local' as const }
 
   const externalMarketId = await ensureExternalMarket(market)
 
   const payload = {
-    league_id: leagueId,
+    league_id: context.leagueId,
     external_market_id: externalMarketId,
     approval_source: POLYMARKET_SOURCE,
     status: approved ? 'approved' : 'archived',
@@ -116,19 +129,19 @@ export async function persistMarketApproval(market: Market, approved: boolean) {
   })
 
   if (error) throw error
-  return { mode: 'supabase' as const }
+  return { mode: 'supabase' as const, context }
 }
 
 export async function persistTradeIntent(intent: TradeIntent, market: Market) {
   if (!supabase) return { mode: 'local' as const }
 
-  const leagueId = await getLeagueId()
-  if (!leagueId) return { mode: 'local' as const }
+  const context = await getLeagueContext()
+  if (!context?.leagueId) return { mode: 'local' as const }
 
   const externalMarketId = await ensureExternalMarket(market)
 
   const payload = {
-    league_id: leagueId,
+    league_id: context.leagueId,
     external_market_id: externalMarketId,
     side: intent.side.toLowerCase(),
     shares: intent.shares,
@@ -141,14 +154,14 @@ export async function persistTradeIntent(intent: TradeIntent, market: Market) {
   const { error } = await supabase.from('trade_intents').insert(payload)
   if (error) throw error
 
-  return { mode: 'supabase' as const }
+  return { mode: 'supabase' as const, context }
 }
 
 export async function persistSettlementAction(item: ResolutionItem) {
   if (!supabase) return { mode: 'local' as const }
 
-  const leagueId = await getLeagueId()
-  if (!leagueId) return { mode: 'local' as const }
+  const context = await getLeagueContext()
+  if (!context?.leagueId) return { mode: 'local' as const }
 
   const market: Market = {
     id: item.marketId,
@@ -165,7 +178,7 @@ export async function persistSettlementAction(item: ResolutionItem) {
   const externalMarketId = await ensureExternalMarket(market)
 
   const payload = {
-    league_id: leagueId,
+    league_id: context.leagueId,
     external_market_id: externalMarketId,
     result: item.result === 'Pending' ? null : item.result,
     action_type: item.status.toLowerCase(),
@@ -176,5 +189,5 @@ export async function persistSettlementAction(item: ResolutionItem) {
   const { error } = await supabase.from('settlement_actions').insert(payload)
   if (error) throw error
 
-  return { mode: 'supabase' as const }
+  return { mode: 'supabase' as const, context }
 }

@@ -38,6 +38,7 @@ function statusClass(status: string) {
 
 function App() {
   const {
+    context,
     runtimePersistenceMode,
     liveStatus,
     selectedSetSlugs,
@@ -69,7 +70,7 @@ function App() {
           <strong>Shipping the private-league MVP, not just a pretty mock.</strong>
         </div>
         <p>
-          Active scope: live Polymarket discovery, league whitelisting, invite flow, settlement controls, and backend-ready runtime state.
+          Active scope: live Polymarket discovery, league whitelisting, invite flow, settlement controls, backend-ready runtime state, and league context hydration.
         </p>
       </section>
 
@@ -259,13 +260,13 @@ function App() {
           <div className="invite-grid">
             <article className="info-card">
               <span>Invite link</span>
-              <strong>{leagueConfig.inviteLink}</strong>
+              <strong>polymates.app/join/{context.inviteCode}</strong>
               <small>Share in group chat and onboard friends instantly.</small>
             </article>
             <article className="info-card">
               <span>League rules</span>
               <strong>${leagueConfig.startingBalance.toLocaleString()} start · ${leagueConfig.weeklyBonus.toLocaleString()} weekly</strong>
-              <small>{leagueConfig.memberCount} current members · invite-only</small>
+              <small>{leagueConfig.memberCount} current members · viewing as {context.viewerName}</small>
             </article>
           </div>
         </section>
@@ -342,7 +343,7 @@ function App() {
                 <article key={item.marketId} className="queue-card">
                   <strong>{market.yesPrice}¢ YES</strong>
                   <span>{market.title}</span>
-                  <small>{item.source} import · {item.approvedAt}</small>
+                  <small>{item.source} import · {item.approvedAt} · {context.leagueName}</small>
                 </article>
               )
             })}
@@ -448,7 +449,7 @@ function App() {
           <article className="subpanel intent-panel">
             <div className="subpanel-head">
               <p className="section-label">Trade intent queue</p>
-              <span className="soft-chip">{runtimePersistenceMode} runtime</span>
+              <span className="soft-chip">{runtimePersistenceMode} runtime · {context.leagueName}</span>
             </div>
             <div className="intent-stack">
               {tradeIntents.map((intent) => (

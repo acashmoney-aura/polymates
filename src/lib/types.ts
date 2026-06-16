@@ -58,6 +58,13 @@ export type LeagueConfig = {
   weeklyBonus: number
 }
 
+export type LeagueRuntimeContext = {
+  leagueId?: string
+  leagueName: string
+  inviteCode: string
+  viewerName: string
+}
+
 export type ResolutionStatus = 'Ready' | 'Paused' | 'Resolved'
 
 export type ResolutionItem = {
