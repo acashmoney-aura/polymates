@@ -1,13 +1,13 @@
 :root {
   --bg: #07111e;
-  --panel: rgba(9, 16, 28, 0.92);
+  --panel: rgba(9, 16, 28, 0.78);
   --card-bg: rgba(13, 22, 37, 0.96);
   --text-h: #f8fbff;
   --muted: #9cb0c9;
   --muted-strong: #7dd3fc;
   --border: rgba(148, 163, 184, 0.16);
   --border-strong: rgba(148, 163, 184, 0.34);
-  --chip-bg: rgba(255, 255, 255, 0.03);
+  --chip-bg: rgba(255, 255, 255, 0.04);
   --accent: #8b5cf6;
   --shadow-soft: 0 22px 70px rgba(0, 0, 0, 0.28);
 
@@ -22,8 +22,8 @@
   font-weight: 400;
   color: var(--text-h);
   background:
-    radial-gradient(circle at top, rgba(99, 179, 237, 0.16), transparent 24%),
-    linear-gradient(180deg, #050b14 0%, #08111f 100%);
+    radial-gradient(circle at top, rgba(99, 179, 237, 0.18), transparent 22%),
+    linear-gradient(180deg, #040914 0%, #08111f 52%, #060d18 100%);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -53,8 +53,8 @@ body::before {
     linear-gradient(rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.02)),
     repeating-linear-gradient(
       90deg,
-      rgba(125, 211, 252, 0.03) 0,
-      rgba(125, 211, 252, 0.03) 1px,
+      rgba(125, 211, 252, 0.035) 0,
+      rgba(125, 211, 252, 0.035) 1px,
       transparent 1px,
       transparent 120px
     );
@@ -69,6 +69,18 @@ a {
   color: inherit;
 }
 
+img {
+  display: block;
+  max-width: 100%;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
 h1,
 h2,
 h3,
@@ -77,26 +89,30 @@ p {
 }
 
 h1 {
-  font-size: clamp(2.8rem, 6vw, 5.2rem);
+  font-size: clamp(3rem, 6vw, 5.6rem);
   line-height: 0.95;
-  letter-spacing: -0.05em;
-  margin-bottom: 20px;
+  letter-spacing: -0.055em;
+  margin-bottom: 18px;
 }
 
 h2 {
-  font-size: clamp(1.8rem, 3vw, 3rem);
-  line-height: 1.02;
+  font-size: clamp(1.8rem, 3vw, 3.1rem);
+  line-height: 1.03;
   letter-spacing: -0.04em;
   margin-bottom: 14px;
 }
 
 h3 {
-  font-size: 1.25rem;
+  font-size: 1.2rem;
   margin-bottom: 10px;
 }
 
 p {
   font-size: 1rem;
+}
+
+::selection {
+  background: rgba(125, 211, 252, 0.24);
 }
 
 @media (max-width: 980px) {

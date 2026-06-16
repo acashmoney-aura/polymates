@@ -7,6 +7,7 @@
     "Product is an app shell, not a starter page",
     "Core surfaces exist: watchlist, market detail, catalysts, friend activity, and thesis tracking",
     "UI feels coherent and demoable on desktop and mobile",
+    "Branding, SEO, and visual polish are present",
     "Project builds successfully",
     "Repo is isolated enough to commit and push cleanly"
   ],
@@ -22,16 +23,19 @@
     "runtimePreference": "continue until done or truly blocked"
   },
   "state": {
-    "status": "running",
+    "status": "completed",
     "completed": [
       "Inspected repo",
       "Replaced starter with first-pass concept landing page",
       "Upgraded to app-shell MVP with watchlist, market detail, catalysts, friend takes, and activity feed",
       "Added local Goal Mode skill",
-      "Verified production build"
+      "Added branding, logo, social card, richer layout, and motion polish",
+      "Added SEO metadata and software application schema",
+      "Verified production build",
+      "Isolated repo and pushed MVP to GitHub"
     ],
-    "currentStep": "Isolate Polymates as its own repo and push it",
-    "nextStep": "Initialize repo, commit MVP, create GitHub repo, push"
+    "currentStep": "Goal complete",
+    "nextStep": "Optional future work: backend, auth, real market data, collaborative rooms"
   },
   "stopConditions": [
     "Success criteria met",

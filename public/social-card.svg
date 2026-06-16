@@ -1,0 +1,43 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="630" rx="40" fill="#07111E"/>
+  <circle cx="1035" cy="84" r="210" fill="url(#g1)" fill-opacity="0.28"/>
+  <circle cx="154" cy="553" r="220" fill="url(#g2)" fill-opacity="0.25"/>
+  <rect x="54" y="54" width="1092" height="522" rx="32" fill="#0B1526" stroke="rgba(255,255,255,0.08)"/>
+  <g>
+    <rect x="104" y="104" width="88" height="88" rx="24" fill="#08111F"/>
+    <path d="M113 153C113 127.594 133.594 107 159 107H191V128.5H159C145.469 128.5 134.5 139.469 134.5 153V169H113V153Z" fill="url(#g3)"/>
+    <path d="M106 124C106 115.163 113.163 108 122 108H173C181.837 108 189 115.163 189 124V132H166V131H130V169H106V124Z" fill="url(#g4)"/>
+    <circle cx="191" cy="153" r="17" fill="url(#g5)"/>
+  </g>
+  <text x="222" y="145" fill="#F8FBFF" font-family="Inter, Arial, sans-serif" font-size="56" font-weight="700">Polymates</text>
+  <text x="104" y="250" fill="#F8FBFF" font-family="Inter, Arial, sans-serif" font-size="72" font-weight="700">Collaborative intelligence</text>
+  <text x="104" y="330" fill="#F8FBFF" font-family="Inter, Arial, sans-serif" font-size="72" font-weight="700">for prediction markets</text>
+  <text x="104" y="407" fill="#9CB0C9" font-family="Inter, Arial, sans-serif" font-size="30">Track conviction, save catalysts, compare takes, and turn market chaos into a real workflow.</text>
+  <rect x="104" y="466" width="236" height="66" rx="33" fill="url(#g3)"/>
+  <text x="144" y="508" fill="#07111E" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">Watch together</text>
+  <rect x="362" y="466" width="231" height="66" rx="33" fill="#121E31" stroke="rgba(255,255,255,0.12)"/>
+  <text x="403" y="508" fill="#F8FBFF" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">Track conviction</text>
+  <defs>
+    <linearGradient id="g1" x1="825" y1="-126" x2="1245" y2="294" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38BDF8"/>
+      <stop offset="1" stop-color="#B998FF"/>
+    </linearGradient>
+    <linearGradient id="g2" x1="-66" y1="333" x2="374" y2="773" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8CF1C7"/>
+      <stop offset="1" stop-color="#38BDF8"/>
+    </linearGradient>
+    <linearGradient id="g3" x1="113" y1="107" x2="216" y2="188" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8CF1C7"/>
+      <stop offset="0.55" stop-color="#66D9FF"/>
+      <stop offset="1" stop-color="#B998FF"/>
+    </linearGradient>
+    <linearGradient id="g4" x1="106" y1="108" x2="190" y2="169" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#B998FF"/>
+      <stop offset="1" stop-color="#38BDF8"/>
+    </linearGradient>
+    <linearGradient id="g5" x1="174" y1="136" x2="208" y2="170" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FDE68A"/>
+      <stop offset="1" stop-color="#FB7185"/>
+    </linearGradient>
+  </defs>
+</svg>
