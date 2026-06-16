@@ -1,174 +1,17 @@
 import { useMemo, useState } from 'react'
 import './App.css'
 import logoMark from '/polymates-mark.svg'
+import { estimateBinaryTrade } from './lib/amm'
+import {
+  activityFeed,
+  leagueMembers,
+  leagueModes,
+  markets,
+  marketSets,
+  positions,
+} from './lib/mock-data'
+import { productSpec } from './lib/product-spec'
 import { hasSupabaseEnv } from './lib/supabase'
-
-type LeagueMember = {
-  name: string
-  rank: number
-  portfolio: string
-  pnl: string
-  note: string
-}
-
-type Market = {
-  id: string
-  title: string
-  stage: string
-  closes: string
-  yesPrice: number
-  noPrice: number
-  volume: string
-  rules: string
-  status: 'Open' | 'Closing Soon' | 'Resolved'
-}
-
-type Position = {
-  market: string
-  side: 'YES' | 'NO'
-  shares: number
-  avgPrice: number
-  currentValue: string
-  pnl: string
-}
-
-type Activity = {
-  user: string
-  text: string
-  time: string
-}
-
-const leagueMembers: LeagueMember[] = [
-  {
-    name: 'Akash',
-    rank: 1,
-    portfolio: '$10,842',
-    pnl: '+$842',
-    note: 'Macro sharp this week',
-  },
-  {
-    name: 'Maya',
-    rank: 2,
-    portfolio: '$10,615',
-    pnl: '+$615',
-    note: 'Champion market sniper',
-  },
-  {
-    name: 'Arnav',
-    rank: 3,
-    portfolio: '$10,201',
-    pnl: '+$201',
-    note: 'Grinding match winners',
-  },
-  {
-    name: 'Jason',
-    rank: 4,
-    portfolio: '$9,744',
-    pnl: '-$256',
-    note: 'Needs one good bounce-back',
-  },
-]
-
-const markets: Market[] = [
-  {
-    id: 'bra-mor',
-    title: 'Will Brazil beat Morocco?',
-    stage: 'Quarterfinal',
-    closes: 'Closes at kickoff · Fri 3:00 PM',
-    yesPrice: 62,
-    noPrice: 40,
-    volume: '$18.4k fantasy volume',
-    rules: 'Resolves YES if Brazil wins in regular time. Resolves NO otherwise.',
-    status: 'Open',
-  },
-  {
-    id: 'usa-par',
-    title: 'Will USA beat Paraguay?',
-    stage: 'Group Stage',
-    closes: 'Closes at kickoff · Sat 12:00 PM',
-    yesPrice: 58,
-    noPrice: 44,
-    volume: '$12.7k fantasy volume',
-    rules: 'Resolves YES if USA wins. Resolves NO if draw or Paraguay win.',
-    status: 'Closing Soon',
-  },
-  {
-    id: 'arg-advance',
-    title: 'Will Argentina advance?',
-    stage: 'Knockout',
-    closes: 'Closes at kickoff · Sun 8:00 PM',
-    yesPrice: 73,
-    noPrice: 29,
-    volume: '$21.1k fantasy volume',
-    rules: 'Resolves YES if Argentina advances from the round. Resolves NO otherwise.',
-    status: 'Open',
-  },
-]
-
-const positions: Position[] = [
-  {
-    market: 'Will Brazil beat Morocco?',
-    side: 'YES',
-    shares: 100,
-    avgPrice: 0.62,
-    currentValue: '$66',
-    pnl: '+$4',
-  },
-  {
-    market: 'Will USA beat Paraguay?',
-    side: 'NO',
-    shares: 80,
-    avgPrice: 0.41,
-    currentValue: '$35',
-    pnl: '+$2',
-  },
-  {
-    market: 'Will Argentina advance?',
-    side: 'YES',
-    shares: 60,
-    avgPrice: 0.69,
-    currentValue: '$44',
-    pnl: '+$3',
-  },
-]
-
-const activityFeed: Activity[] = [
-  {
-    user: 'Maya',
-    text: 'bought $320 YES on Brazil to beat Morocco.',
-    time: '9 min ago',
-  },
-  {
-    user: 'Arnav',
-    text: 'sold champion shares for +$118 fantasy profit.',
-    time: '26 min ago',
-  },
-  {
-    user: 'Jason',
-    text: 'jumped into USA vs Paraguay after line movement.',
-    time: '41 min ago',
-  },
-  {
-    user: 'Akash',
-    text: 'moved to #1 in the league after two good exits.',
-    time: '1 hr ago',
-  },
-]
-
-const leagueModes = [
-  {
-    title: 'Season League',
-    body: '$10,000 starting balance. Full World Cup run. Leaderboard by total portfolio value.',
-  },
-  {
-    title: 'Weekly Sprint',
-    body: '$2,500 weekly reset. Faster loops and weekly winners.',
-  },
-  {
-    title: 'Matchday Room',
-    body: '$1,000 temporary bankroll for a single match or slate.',
-  },
-]
 
 function App() {
   const [selectedMarketId, setSelectedMarketId] = useState(markets[0].id)
@@ -176,6 +19,16 @@ function App() {
   const selectedMarket = useMemo(
     () => markets.find((market) => market.id === selectedMarketId) ?? markets[0],
     [selectedMarketId],
+  )
+
+  const tradePreview = useMemo(
+    () =>
+      estimateBinaryTrade({
+        currentYesPrice: selectedMarket.yesPrice,
+        shares: 100,
+        side: 'YES',
+      }),
+    [selectedMarket],
   )
 
   return (
@@ -188,38 +41,38 @@ function App() {
           <img src={logoMark} alt="Polymates logo" className="brand-mark" />
           <div>
             <p className="eyebrow">POLYMATES</p>
-            <span className="brand-subtitle">Private World Cup fantasy prediction leagues</span>
+            <span className="brand-subtitle">Private fantasy prediction leagues for any approved market set</span>
           </div>
         </div>
         <nav className="topbar-nav" aria-label="Primary">
           <a href="#dashboard">Dashboard</a>
+          <a href="#market-sets">Market sets</a>
           <a href="#markets">Markets</a>
-          <a href="#portfolio">Portfolio</a>
           <a href="#admin">Admin</a>
         </nav>
       </header>
 
       <section className="hero-grid">
         <div className="hero-card intro-card">
-          <p className="eyebrow">WORLD CUP FANTASY PREDICTION EXCHANGE</p>
-          <h1>Create a private league. Trade fantasy-dollar markets. Beat your friends.</h1>
+          <p className="eyebrow">FANTASY PREDICTION LEAGUES</p>
+          <h1>Create a private league. Choose the market packs. Trade fantasy-dollar contracts.</h1>
           <p className="body-copy hero-copy">
-            Polymates gives your group a simulated Polymarket-style World Cup game:
-            fantasy bankrolls, YES/NO markets, leaderboards, social activity, and admin settlement tools.
+            Polymates gives your group a simulated prediction exchange with league-specific balances,
+            configurable market sets, social activity, admin settlement, and portfolio-based competition.
           </p>
           <div className="hero-actions">
             <a href="#dashboard" className="primary-cta">
               Explore MVP
             </a>
-            <a href="#markets" className="secondary-cta">
-              View market flow
+            <a href="#market-sets" className="secondary-cta">
+              View market packs
             </a>
           </div>
           <div className="safety-callout">
-            <strong>Fantasy dollars only.</strong>
+            <strong>{productSpec.defaultRules.currencyName} only.</strong>
             <span>No cash value · No deposits · No withdrawals</span>
             <small>
-              Backend status: {hasSupabaseEnv ? 'Supabase env detected' : 'Supabase env not connected yet'}
+              Backend status: {hasSupabaseEnv ? 'Supabase env detected' : 'Supabase env scaffolded, credentials still needed'}
             </small>
           </div>
         </div>
@@ -227,26 +80,26 @@ function App() {
         <div className="hero-card snapshot-card shimmer-card">
           <div className="snapshot-head">
             <div>
-              <p className="section-label">Default MVP league</p>
-              <h2>Akash’s World Cup League</h2>
+              <p className="section-label">Default league shape</p>
+              <h2>Private league + global market packs</h2>
             </div>
-            <span className="status-chip open">Season League</span>
+            <span className="status-chip open">MVP</span>
           </div>
           <div className="metric-row compact">
             <article className="metric-pill float-card">
-              <strong>$10,000</strong>
+              <strong>${productSpec.defaultRules.startingBalance.toLocaleString()}</strong>
               <span>Starting balance</span>
-              <small>Fantasy dollars only</small>
+              <small>Fantasy bankroll</small>
             </article>
             <article className="metric-pill float-card">
-              <strong>$2,000</strong>
+              <strong>${productSpec.defaultRules.weeklyBonus.toLocaleString()}</strong>
               <span>Weekly bonus</span>
-              <small>Encourages continued play</small>
+              <small>Optional reset mechanic</small>
             </article>
             <article className="metric-pill float-card">
-              <strong>YES / NO</strong>
-              <span>Market format</span>
-              <small>Simple settlement rules</small>
+              <strong>{marketSets.length}</strong>
+              <span>Starter market packs</span>
+              <small>World Cup is just one pack</small>
             </article>
           </div>
         </div>
@@ -254,12 +107,12 @@ function App() {
 
       <section className="why-now-card">
         <div>
-          <p className="eyebrow">WHY THIS SHAPE</p>
-          <h2>Start with simulated prediction markets, not real-money complexity.</h2>
+          <p className="eyebrow">WHY THIS PRODUCT</p>
+          <h2>Make the Polymarket feel social and safe before touching real-money complexity.</h2>
         </div>
         <p className="body-copy">
-          The MVP is a private friend league game: global World Cup markets, league-specific balances,
-          portfolio-based leaderboards, and manual/admin-friendly settlement. No order book. No sportsbook baggage.
+          Start with league-approved market sets, simulated AMM pricing, and admin-friendly settlement.
+          That gives you the game loop and social energy without the compliance nightmare.
         </p>
       </section>
 
@@ -270,7 +123,7 @@ function App() {
               <p className="section-label">League dashboard</p>
               <h3>Core game loop at a glance</h3>
             </div>
-            <span className="soft-chip">Private invite-only league</span>
+            <span className="soft-chip">Invite-only private league</span>
           </div>
           <div className="summary-grid">
             <article className="summary-card">
@@ -314,12 +167,31 @@ function App() {
         </aside>
       </section>
 
+      <section className="panel market-set-panel" id="market-sets">
+        <div className="panel-head">
+          <div>
+            <p className="section-label">League-approved market sets</p>
+            <h3>The app is not World Cup-only</h3>
+          </div>
+          <span className="soft-chip">Global market packs, league-specific competition</span>
+        </div>
+        <div className="market-set-grid">
+          {marketSets.map((set) => (
+            <article key={set.slug} className="mode-card">
+              <strong>{set.title}</strong>
+              <p>{set.description}</p>
+              <small>{set.eventCount} events · {set.leagueCount} sample leagues</small>
+            </article>
+          ))}
+        </div>
+      </section>
+
       <section className="workspace-grid" id="markets">
         <aside className="panel watchlist-panel">
           <div className="panel-head">
             <div>
-              <p className="section-label">World Cup markets</p>
-              <h3>Upcoming prediction contracts</h3>
+              <p className="section-label">Market feed</p>
+              <h3>Upcoming contracts</h3>
             </div>
             <button type="button" className="ghost-button">
               + Create market
@@ -353,7 +225,7 @@ function App() {
         <section className="panel detail-panel">
           <div className="panel-head">
             <div>
-              <p className="section-label">Market page</p>
+              <p className="section-label">Market workspace</p>
               <h3>{selectedMarket.title}</h3>
             </div>
             <span className="soft-chip">{selectedMarket.stage}</span>
@@ -381,14 +253,16 @@ function App() {
             </article>
 
             <article className="subpanel trade-panel">
-              <p className="section-label">Trade panel</p>
+              <p className="section-label">AMM preview</p>
               <div className="trade-preview">
-                <strong>Example trade</strong>
-                <p>Buy 100 YES shares at {selectedMarket.yesPrice}¢</p>
+                <strong>Buy 100 YES shares</strong>
+                <p>Estimated with a simple MVP AMM, not an order book.</p>
                 <ul className="clean-list compact">
-                  <li>Cost: ${(selectedMarket.yesPrice).toFixed(0)}</li>
-                  <li>Max payout: $100</li>
-                  <li>Potential profit: ${(100 - selectedMarket.yesPrice).toFixed(0)}</li>
+                  <li>Entry price: {tradePreview.entryPrice}¢</li>
+                  <li>Post-trade estimate: {tradePreview.exitPriceEstimate}¢</li>
+                  <li>Estimated cost: ${tradePreview.cost}</li>
+                  <li>Max payout: ${tradePreview.maxPayout}</li>
+                  <li>Potential profit: ${tradePreview.maxProfit}</li>
                 </ul>
               </div>
             </article>
@@ -402,7 +276,8 @@ function App() {
               </span>
             </div>
             <p className="body-copy">
-              Markets close at kickoff and settle after the final result. For MVP, admin tools can resolve markets manually.
+              Markets lock at start time and settle after the final result or defined event outcome.
+              MVP admin tools can resolve manually before feed automation is added.
             </p>
           </article>
         </section>
@@ -435,14 +310,16 @@ function App() {
               <p className="section-label">Portfolio</p>
               <h3>Open positions</h3>
             </div>
-            <span className="soft-chip">Fantasy dollars only</span>
+            <span className="soft-chip">{productSpec.coreEntities.length} core entities in schema</span>
           </div>
           <div className="table-like-grid">
             {positions.map((position) => (
               <article key={position.market + position.side} className="position-row">
                 <div>
                   <strong>{position.market}</strong>
-                  <span>{position.side} · {position.shares} shares @ ${position.avgPrice.toFixed(2)}</span>
+                  <span>
+                    {position.side} · {position.shares} shares @ ${position.avgPrice.toFixed(2)}
+                  </span>
                 </div>
                 <div>
                   <strong>{position.currentValue}</strong>
@@ -464,7 +341,9 @@ function App() {
             {leagueMembers.map((member) => (
               <article key={member.name} className="leaderboard-row">
                 <div>
-                  <strong>#{member.rank} {member.name}</strong>
+                  <strong>
+                    #{member.rank} {member.name}
+                  </strong>
                   <span>{member.note}</span>
                 </div>
                 <div>
@@ -482,25 +361,25 @@ function App() {
           <div className="panel-head">
             <div>
               <p className="section-label">Admin + settlement tools</p>
-              <h3>Do not skip this in the MVP</h3>
+              <h3>Still mandatory in the MVP</h3>
             </div>
           </div>
           <div className="admin-actions-grid">
             <article className="admin-card">
               <strong>Create / pause markets</strong>
-              <p>Seed World Cup markets manually and freeze them at kickoff.</p>
+              <p>Seed markets from approved market packs and lock them at the correct time.</p>
             </article>
             <article className="admin-card">
               <strong>Resolve outcomes</strong>
-              <p>Settle YES / NO contracts after final result and push payouts.</p>
+              <p>Settle YES / NO contracts and push payouts across every participating league.</p>
             </article>
             <article className="admin-card">
               <strong>Inspect trades</strong>
               <p>Review league activity, suspicious flows, and mistaken settlements.</p>
             </article>
             <article className="admin-card">
-              <strong>Reset league state</strong>
-              <p>Fix edge cases quickly while testing the full game loop.</p>
+              <strong>Reset / repair league state</strong>
+              <p>Fix bad seeds, wrong results, or testing artifacts without nuking the whole app.</p>
             </article>
           </div>
         </section>
@@ -508,8 +387,8 @@ function App() {
         <aside className="panel scope-panel">
           <div className="panel-head">
             <div>
-              <p className="section-label">Not in v1</p>
-              <h3>Protect the scope</h3>
+              <p className="section-label">Protected scope</p>
+              <h3>Keep v1 tight</h3>
             </div>
           </div>
           <ul className="clean-list compact">
@@ -517,9 +396,9 @@ function App() {
             <li>No deposits or withdrawals</li>
             <li>No public markets</li>
             <li>No user-created markets</li>
-            <li>No player props</li>
             <li>No live in-game trading</li>
             <li>No parlays yet</li>
+            <li>No complex order book</li>
           </ul>
         </aside>
       </section>
@@ -527,10 +406,11 @@ function App() {
       <section className="closing-banner">
         <div>
           <p className="eyebrow">INTERNAL PRODUCT LINE</p>
-          <h2>Fantasy prediction exchange — not betting app.</h2>
+          <h2>Fantasy prediction league engine — not sportsbook clone.</h2>
         </div>
         <p className="body-copy">
-          Create a private World Cup league, trade fantasy-dollar prediction markets, and compete with friends on portfolio value.
+          Create a private league, approve the market sets you want, trade fantasy-dollar contracts,
+          and compete with friends on portfolio value.
         </p>
       </section>
     </main>
