@@ -96,6 +96,8 @@ create table if not exists league_markets (
   approval_source text not null default 'manual',
   status text not null default 'approved',
   created_at timestamptz not null default now(),
+  unique (league_id, market_id),
+  unique (league_id, external_market_id),
   check (
     (market_id is not null) or (external_market_id is not null)
   )
@@ -142,6 +144,7 @@ create table if not exists trade_intents (
   user_id uuid references users(id) on delete set null,
   market_id uuid references markets(id) on delete cascade,
   external_market_id uuid references external_markets(id) on delete cascade,
+  market_title text not null,
   side text not null,
   shares numeric not null,
   estimated_price numeric not null,
@@ -178,6 +181,7 @@ create table if not exists settlement_actions (
   league_id uuid not null references leagues(id) on delete cascade,
   market_id uuid references markets(id) on delete cascade,
   external_market_id uuid references external_markets(id) on delete cascade,
+  market_title text not null,
   result text,
   action_type text not null,
   note text,

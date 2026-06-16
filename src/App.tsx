@@ -47,6 +47,7 @@ function App() {
     selectedMarket,
     discoveryMarkets,
     leagueVisibleMarkets,
+    syncState,
     toggleMarketSet,
     toggleMarketApproval,
     updateResolution,
@@ -114,6 +115,9 @@ function App() {
             <small>Runtime mode: {describeRuntimeMode()}</small>
             <small>
               Polymarket feed: {liveStatus === 'live' ? 'live Gamma API connection active' : liveStatus === 'loading' ? 'connecting…' : 'fallback mock feed active'}
+            </small>
+            <small>
+              Sync: {syncState.message}
             </small>
           </div>
         </div>
@@ -308,7 +312,7 @@ function App() {
                     <button type="button" className="mini-button" onClick={() => setSelectedMarketId(market.id)}>
                       Inspect
                     </button>
-                    <button type="button" className={`mini-button ${approved ? 'active' : ''}`} onClick={() => toggleMarketApproval(market)}>
+                    <button type="button" className={`mini-button ${approved ? 'active' : ''}`} onClick={() => void toggleMarketApproval(market)}>
                       {approved ? 'Approved' : 'Approve'}
                     </button>
                   </div>
@@ -418,10 +422,10 @@ function App() {
                 <strong>Queue a fantasy trade</strong>
                 <p>Orders now map to a backend-ready trade intent shape, with local fallback until Supabase keys land.</p>
                 <div className="ticket-actions compact-top">
-                  <button type="button" className="mini-button active" onClick={() => queueTrade('YES', 100)}>
+                  <button type="button" className="mini-button active" onClick={() => void queueTrade('YES', 100)}>
                     Queue 100 YES
                   </button>
-                  <button type="button" className="mini-button" onClick={() => queueTrade('NO', 100)}>
+                  <button type="button" className="mini-button" onClick={() => void queueTrade('NO', 100)}>
                     Queue 100 NO
                   </button>
                 </div>
@@ -557,13 +561,13 @@ function App() {
                   <small>{item.note}</small>
                 </div>
                 <div className="resolution-actions">
-                  <button type="button" className="mini-button" onClick={() => updateResolution(item.id, { status: 'Resolved', result: 'YES', note: 'Resolved YES and pushed league payout snapshot.' })}>
+                  <button type="button" className="mini-button" onClick={() => void updateResolution(item.id, { status: 'Resolved', result: 'YES', note: 'Resolved YES and pushed league payout snapshot.' })}>
                     Resolve YES
                   </button>
-                  <button type="button" className="mini-button" onClick={() => updateResolution(item.id, { status: 'Resolved', result: 'NO', note: 'Resolved NO and pushed league payout snapshot.' })}>
+                  <button type="button" className="mini-button" onClick={() => void updateResolution(item.id, { status: 'Resolved', result: 'NO', note: 'Resolved NO and pushed league payout snapshot.' })}>
                     Resolve NO
                   </button>
-                  <button type="button" className="mini-button" onClick={() => updateResolution(item.id, { status: 'Paused', result: item.result === 'Pending' ? 'Pending' : item.result, note: 'Paused for admin review before reopening or resettling.' })}>
+                  <button type="button" className="mini-button" onClick={() => void updateResolution(item.id, { status: 'Paused', result: item.result === 'Pending' ? 'Pending' : item.result, note: 'Paused for admin review before reopening or resettling.' })}>
                     Pause
                   </button>
                 </div>

@@ -62,6 +62,7 @@ export type ResolutionStatus = 'Ready' | 'Paused' | 'Resolved'
 
 export type ResolutionItem = {
   id: string
+  marketId: string
   marketTitle: string
   league: string
   result: 'YES' | 'NO' | 'Pending'
@@ -80,6 +81,7 @@ export type TradeIntentStatus = 'Draft' | 'Queued' | 'Filled'
 
 export type TradeIntent = {
   id: string
+  marketId?: string
   marketTitle: string
   side: 'YES' | 'NO'
   shares: number
@@ -90,3 +92,8 @@ export type TradeIntent = {
 }
 
 export type RuntimePersistenceMode = 'local' | 'supabase'
+
+export type RuntimeSyncState = {
+  level: 'idle' | 'syncing' | 'synced' | 'error'
+  message: string
+}

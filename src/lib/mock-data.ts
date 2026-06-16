@@ -103,6 +103,7 @@ export const positions: Position[] = [
 export const tradeIntents: TradeIntent[] = [
   {
     id: 'intent-1',
+    marketId: 'bra-mor',
     marketTitle: 'Will Brazil beat Morocco?',
     side: 'YES',
     shares: 100,
@@ -113,6 +114,7 @@ export const tradeIntents: TradeIntent[] = [
   },
   {
     id: 'intent-2',
+    marketId: 'usa-par',
     marketTitle: 'Will USA beat Paraguay?',
     side: 'NO',
     shares: 80,
@@ -133,6 +135,7 @@ export const activityFeed: Activity[] = [
 export const resolutionQueue: ResolutionItem[] = [
   {
     id: 'resolve-bra-mor',
+    marketId: 'bra-mor',
     marketTitle: 'Will Brazil beat Morocco?',
     league: 'Friday Night Futures',
     result: 'Pending',
@@ -141,6 +144,7 @@ export const resolutionQueue: ResolutionItem[] = [
   },
   {
     id: 'resolve-usa-par',
+    marketId: 'usa-par',
     marketTitle: 'Will USA beat Paraguay?',
     league: 'Weekly Sprint 04',
     result: 'Pending',
@@ -149,6 +153,7 @@ export const resolutionQueue: ResolutionItem[] = [
   },
   {
     id: 'resolve-arg-advance',
+    marketId: 'arg-advance',
     marketTitle: 'Will Argentina advance?',
     league: 'Friday Night Futures',
     result: 'YES',

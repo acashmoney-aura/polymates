@@ -7,9 +7,21 @@ import {
   resolutionQueue as seedResolutionQueue,
   tradeIntents as seedTradeIntents,
 } from './mock-data'
+import {
+  loadPersistedRuntimeSnapshot,
+  persistMarketApproval,
+  persistSettlementAction,
+  persistTradeIntent,
+} from './persistence'
 import { fetchPolymarketMarkets } from './polymarket'
 import { runtimePersistenceMode } from './supabase'
-import type { LeagueMarketApproval, Market, ResolutionItem, TradeIntent } from './types'
+import type {
+  LeagueMarketApproval,
+  Market,
+  ResolutionItem,
+  RuntimeSyncState,
+  TradeIntent,
+} from './types'
 
 function makeTradeIntent(market: Market, side: 'YES' | 'NO', shares = 100): TradeIntent {
   const preview = estimateBinaryTrade({
@@ -20,6 +32,7 @@ function makeTradeIntent(market: Market, side: 'YES' | 'NO', shares = 100): Trad
 
   return {
     id: `intent-${market.id}-${Date.now()}`,
+    marketId: market.id,
     marketTitle: market.title,
     side,
     shares,
@@ -38,6 +51,10 @@ export function useLeagueRuntime() {
   const [resolutionQueue, setResolutionQueue] = useState<ResolutionItem[]>(seedResolutionQueue)
   const [tradeIntents, setTradeIntents] = useState<TradeIntent[]>(seedTradeIntents)
   const [selectedMarketId, setSelectedMarketId] = useState(fallbackMarkets[0].id)
+  const [syncState, setSyncState] = useState<RuntimeSyncState>({
+    level: 'idle',
+    message: runtimePersistenceMode === 'supabase' ? 'Waiting to sync runtime state.' : 'Local runtime fallback active.',
+  })
 
   useEffect(() => {
     let cancelled = false
@@ -58,6 +75,34 @@ export function useLeagueRuntime() {
     }
 
     void loadLiveMarkets()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (runtimePersistenceMode !== 'supabase') return
+
+    let cancelled = false
+
+    async function hydrateFromSupabase() {
+      try {
+        setSyncState({ level: 'syncing', message: 'Loading persisted runtime state from Supabase…' })
+        const snapshot = await loadPersistedRuntimeSnapshot()
+        if (cancelled || !snapshot) return
+        if (snapshot.approvals.length > 0) setApprovals(snapshot.approvals)
+        if (snapshot.tradeIntents.length > 0) setTradeIntents(snapshot.tradeIntents)
+        setSyncState({ level: 'synced', message: 'Hydrated approvals and trade intents from Supabase.' })
+      } catch (error) {
+        if (cancelled) return
+        setSyncState({
+          level: 'error',
+          message: error instanceof Error ? error.message : 'Supabase hydration failed.',
+        })
+      }
+    }
+
+    void hydrateFromSupabase()
     return () => {
       cancelled = true
     }
@@ -104,16 +149,19 @@ export function useLeagueRuntime() {
     )
   }
 
-  function toggleMarketApproval(market: Market) {
+  async function toggleMarketApproval(market: Market) {
+    const existing = approvals.find((item) => item.marketId === market.id)
+    const nextApproved = !(existing?.approved ?? false)
+
     setApprovals((current) => {
-      const existing = current.find((item) => item.marketId === market.id)
-      if (existing) {
+      const found = current.find((item) => item.marketId === market.id)
+      if (found) {
         return current.map((item) =>
           item.marketId === market.id
             ? {
                 ...item,
-                approved: !item.approved,
-                approvedAt: !item.approved ? 'Just synced' : item.approvedAt,
+                approved: nextApproved,
+                approvedAt: nextApproved ? 'Just synced' : item.approvedAt,
               }
             : item,
         )
@@ -129,17 +177,71 @@ export function useLeagueRuntime() {
         },
       ]
     })
+
+    try {
+      setSyncState({ level: 'syncing', message: `Saving market approval for ${market.title}…` })
+      const result = await persistMarketApproval(market, nextApproved)
+      setSyncState({
+        level: result.mode === 'supabase' ? 'synced' : 'idle',
+        message: result.mode === 'supabase' ? `Saved ${market.title} approval to Supabase.` : 'Local runtime fallback active.',
+      })
+    } catch (error) {
+      setSyncState({
+        level: 'error',
+        message: error instanceof Error ? error.message : 'Failed to persist market approval.',
+      })
+    }
   }
 
-  function updateResolution(id: string, next: Partial<ResolutionItem>) {
+  async function updateResolution(id: string, next: Partial<ResolutionItem>) {
+    const currentItem = resolutionQueue.find((item) => item.id === id)
+    if (!currentItem) return
+
+    const updatedItem: ResolutionItem = { ...currentItem, ...next }
+
     setResolutionQueue((current) =>
-      current.map((item) => (item.id === id ? { ...item, ...next } : item)),
+      current.map((item) => (item.id === id ? updatedItem : item)),
     )
+
+    try {
+      setSyncState({ level: 'syncing', message: `Saving settlement action for ${updatedItem.marketTitle}…` })
+      const result = await persistSettlementAction(updatedItem)
+      setSyncState({
+        level: result.mode === 'supabase' ? 'synced' : 'idle',
+        message:
+          result.mode === 'supabase'
+            ? `Saved settlement action for ${updatedItem.marketTitle}.`
+            : 'Local runtime fallback active.',
+      })
+    } catch (error) {
+      setSyncState({
+        level: 'error',
+        message: error instanceof Error ? error.message : 'Failed to persist settlement action.',
+      })
+    }
   }
 
-  function queueTrade(side: 'YES' | 'NO', shares = 100) {
+  async function queueTrade(side: 'YES' | 'NO', shares = 100) {
     if (!selectedMarket) return
-    setTradeIntents((current) => [makeTradeIntent(selectedMarket, side, shares), ...current].slice(0, 6))
+    const intent = makeTradeIntent(selectedMarket, side, shares)
+    setTradeIntents((current) => [intent, ...current].slice(0, 6))
+
+    try {
+      setSyncState({ level: 'syncing', message: `Saving ${side} trade intent for ${selectedMarket.title}…` })
+      const result = await persistTradeIntent(intent, selectedMarket)
+      setSyncState({
+        level: result.mode === 'supabase' ? 'synced' : 'idle',
+        message:
+          result.mode === 'supabase'
+            ? `Saved trade intent for ${selectedMarket.title}.`
+            : 'Local runtime fallback active.',
+      })
+    } catch (error) {
+      setSyncState({
+        level: 'error',
+        message: error instanceof Error ? error.message : 'Failed to persist trade intent.',
+      })
+    }
   }
 
   return {
@@ -153,6 +255,7 @@ export function useLeagueRuntime() {
     selectedMarket,
     discoveryMarkets,
     leagueVisibleMarkets,
+    syncState,
     toggleMarketSet,
     toggleMarketApproval,
     updateResolution,
