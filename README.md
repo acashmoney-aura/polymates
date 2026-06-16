@@ -175,6 +175,10 @@ Main data entities:
 - league_snapshots
 - activity_feed
 
+A first-pass Supabase schema for this model lives at:
+
+- `supabase/schema.sql`
+
 ## Market engine
 
 For MVP, prefer a simple AMM:
