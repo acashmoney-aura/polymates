@@ -1,53 +1,270 @@
 # Polymates
 
-Polymates is a collaborative workspace concept for serious Polymarket users.
+Polymates is a **private fantasy prediction league platform**.
 
-## Product idea
+A league admin chooses which market sets the league allows, members receive fantasy bankrolls, trade simulated YES/NO markets, and compete with friends on portfolio value.
 
-Prediction markets have live odds, sharp friends, and endless catalysts, but the workflow is still messy: bookmarks, screenshots, scattered notes, and post-hoc conviction.
+## Core product definition
 
-Polymates is the layer on top:
-- save markets quickly
-- track a thesis and conviction
-- log catalysts / invalidation points
-- compare takes with friends
-- keep a living watchlist instead of losing context
+To build this app properly, it needs six core pieces:
 
-## Current MVP
+1. Product rules
+2. Market engine
+3. Data feed(s) for the chosen market sets
+4. League / social system
+5. Frontend app
+6. Admin / settlement tools
 
-This repo currently ships a frontend MVP app shell with mock data for:
-- watchlist browsing
-- market detail workspace
-- thesis tracking
-- catalyst lists
-- friend activity / social takes
-- conviction display
+The MVP should **not** start with real-money trading, sportsbooks, or a complex financial order book.
+It should start with **simulated Polymarket-style markets** using fantasy dollars.
 
-## Stack
+## Product shape
 
+Important correction:
+- This should **not** be only World Cup.
+- World Cup can be a strong **starter market pack**, but leagues should be able to allow different sets of markets.
+
+Examples of market packs a league might allow later:
+- World Cup
+- NBA playoffs
+- Champions League
+- Elections
+- Awards / entertainment
+- Creator economy / internet events
+
+For MVP, the system should support the concept of **league-approved market sets**, even if the first seeded content is a World Cup pack.
+
+## MVP default rules
+
+Recommended default format:
+
+- Private friend league
+- $10,000 fantasy starting balance
+- Weekly bonus: $2,000 fantasy dollars
+- YES / NO prediction markets
+- Markets close at event start / lock time
+- Markets settle after final outcome
+- Leaderboard by portfolio value
+- No real-money deposits or withdrawals
+
+Important language:
+
+- Fantasy dollars have **no cash value**
+- No deposits
+- No withdrawals
+- No redeemable prizes unless compliance is handled later
+
+## Core user flows
+
+### User onboarding
+- Sign up
+- Create username
+- Join or create league
+- Receive fantasy bankroll
+
+### League creation
+- Create league
+- Choose allowed market set(s)
+- Invite friends by link / code
+- Set bankroll rules
+
+### Market browsing
+- See open / upcoming markets
+- View YES / NO prices
+- Buy shares
+- Sell shares
+- Track portfolio
+
+### Settlement
+- Outcome resolves
+- Balances update
+- Leaderboard updates
+
+## MVP feature list
+
+### Accounts
+- Email/password or Google login
+- Username
+- Profile picture
+
+### Leagues
+- Create league
+- Invite friends
+- Join league
+- League settings
+- Member list
+- Allowed market sets
+
+### Fantasy bankroll
+- Starting balance
+- Buying power
+- Portfolio value
+- Realized P/L
+- Unrealized P/L
+
+### Markets
+Start simple:
+- Binary YES / NO markets
+- Event winner / result markets
+- Advancement markets
+- Draw / non-draw style markets where useful
+
+### Trading
+- Buy YES
+- Buy NO
+- Sell position
+- View order receipt
+- View portfolio
+- Use AMM pricing for MVP, not an order book
+
+### Leaderboards
+- Overall leaderboard
+- Weekly leaderboard
+- Daily / event-window leaderboard
+- Best trade
+- Worst trade
+
+### Admin panel
+- Create markets
+- Pause markets
+- Resolve markets
+- Edit incorrect outcomes
+- View users / leagues
+- Inspect trades
+- Reset a league
+
+## Technical stack
+
+Recommended stack:
+
+- Next.js
 - React
 - TypeScript
-- Vite
+- Tailwind
+- Supabase Auth
+- Supabase Postgres
+- Supabase Edge Functions
+- Vercel
 
-## Run locally
+Optional later:
+- Redis / Upstash
+- Pusher / Ably / Supabase Realtime
 
-```bash
-npm install
-npm run dev
-```
+## Backend model
 
-## Build
+Key concepts:
 
-```bash
-npm run build
-```
+- Global markets grouped into market sets
+- League-specific balances and leaderboards
+- Fantasy-dollar trading only
+- Simulated AMM pricing
+- Admin settlement tools
 
-## Goal mode status
+Main data entities:
 
-Current slice: make the product feel like a real app, not just a landing page.
+- users
+- leagues
+- league_members
+- market_sets
+- events
+- markets
+- outcomes
+- positions
+- trades
+- market_price_history
+- league_snapshots
+- activity_feed
 
-Done in this pass:
-- replaced starter template
-- built an app-shell MVP
-- added local goal-mode state
-- verified production build
+## Market engine
+
+For MVP, prefer a simple AMM:
+- prices move when users buy / sell
+- no real order book
+- intuitive YES / NO trading loop
+
+## App screens
+
+- Landing page
+- Dashboard
+- League page
+- Market page
+- Portfolio page
+- Leaderboard
+- Admin page
+
+## MVP build order
+
+### Phase 1: Static prototype
+- Landing page
+- League dashboard
+- Market page
+- Portfolio page
+- Leaderboard
+- Use fake hardcoded data
+
+### Phase 2: Database + auth
+- Supabase auth
+- Users
+- Leagues
+- League members
+- Invite links
+- Allowed market sets
+- Starting balances
+
+### Phase 3: Market engine
+- Markets
+- Outcomes
+- Buy shares
+- Sell shares
+- Positions
+- Trades
+- Cash balance updates
+
+### Phase 4: Settlement
+- Admin resolves market
+- Payouts calculated
+- Portfolio updates
+- Leaderboard updates
+
+### Phase 5: Social layer
+- Friend activity
+- Comments
+- Reactions
+- Notifications
+
+### Phase 6: Data integration
+- Seeded market packs
+- Auto-close logic
+- Auto-settle from data feeds where available
+
+## Smallest useful MVP
+
+- Google login
+- Create private league
+- Invite friends
+- $10,000 fantasy balance
+- 10–20 manually created markets
+- Buy / sell YES/NO shares
+- Portfolio page
+- Leaderboard
+- Admin settlement
+- Activity feed
+
+## Do not include at first
+
+- Real money
+- Deposits
+- Withdrawals
+- Public markets
+- User-created markets
+- Player props / overly complex props
+- Live in-game trading
+- Parlays
+- Prizes
+- Crypto
+- Complex order book
+- Mobile app first
+
+## Internal concept line
+
+> Create a private fantasy prediction league, choose the market sets your league allows, and compete with friends on portfolio value.

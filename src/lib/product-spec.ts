@@ -1,0 +1,31 @@
+export const productSpec = {
+  defaultRules: {
+    startingBalance: 10000,
+    weeklyBonus: 2000,
+    currencyName: 'Fantasy Dollars',
+    cashValue: false,
+    depositsEnabled: false,
+    withdrawalsEnabled: false,
+  },
+  marketSets: [
+    'World Cup',
+    'NBA Playoffs',
+    'Champions League',
+    'Elections',
+    'Awards / Entertainment',
+  ],
+  coreEntities: [
+    'users',
+    'leagues',
+    'league_members',
+    'market_sets',
+    'events',
+    'markets',
+    'outcomes',
+    'positions',
+    'trades',
+    'market_price_history',
+    'league_snapshots',
+    'activity_feed',
+  ],
+}

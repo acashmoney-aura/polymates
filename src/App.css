@@ -12,22 +12,22 @@
   height: 34rem;
   border-radius: 999px;
   filter: blur(70px);
-  opacity: 0.22;
+  opacity: 0.2;
   pointer-events: none;
-  animation: drift 14s ease-in-out infinite;
+  animation: drift 16s ease-in-out infinite;
 }
 
 .ambient-one {
   top: -8rem;
   right: -4rem;
-  background: radial-gradient(circle, rgba(56, 189, 248, 0.8), transparent 60%);
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.82), transparent 60%);
 }
 
 .ambient-two {
-  bottom: 4rem;
-  left: -6rem;
+  bottom: 3rem;
+  left: -7rem;
   background: radial-gradient(circle, rgba(139, 92, 246, 0.8), transparent 60%);
-  animation-duration: 18s;
+  animation-duration: 19s;
 }
 
 .topbar,
@@ -35,7 +35,6 @@
 .panel,
 .subpanel,
 .why-now-card,
-.feature-section,
 .closing-banner {
   border: 1px solid var(--border);
   background: var(--panel);
@@ -43,13 +42,28 @@
   backdrop-filter: blur(18px);
 }
 
+.topbar,
+.hero-card,
+.panel,
+.why-now-card,
+.closing-banner {
+  border-radius: 28px;
+}
+
+.topbar,
+.hero-card,
+.panel,
+.why-now-card,
+.closing-banner,
+.subpanel {
+  padding: 24px;
+}
+
 .topbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 20px;
-  padding: 24px 28px;
-  border-radius: 28px;
   margin-bottom: 18px;
 }
 
@@ -83,43 +97,43 @@
   color: var(--text-h);
 }
 
-.hero-grid {
+.hero-grid,
+.dashboard-grid,
+.workspace-grid,
+.portfolio-grid,
+.admin-grid {
   display: grid;
-  grid-template-columns: 1.08fr 0.92fr;
   gap: 18px;
 }
 
-.hero-card,
-.panel,
-.why-now-card,
-.feature-section,
-.closing-banner {
-  border-radius: 28px;
+.hero-grid {
+  grid-template-columns: 1.08fr 0.92fr;
 }
 
-.hero-card,
-.panel,
-.feature-section,
-.closing-banner,
-.why-now-card {
-  padding: 28px;
+.dashboard-grid {
+  grid-template-columns: 1.2fr 0.8fr;
+  margin-top: 18px;
+}
+
+.workspace-grid {
+  grid-template-columns: 320px minmax(0, 1fr) 320px;
+  margin-top: 18px;
+}
+
+.portfolio-grid,
+.admin-grid {
+  grid-template-columns: 1.1fr 0.9fr;
+  margin-top: 18px;
 }
 
 .hero-copy {
-  max-width: 58ch;
-}
-
-.metric-row {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  margin-top: 24px;
+  max-width: 60ch;
 }
 
 .hero-actions {
   display: flex;
   gap: 12px;
-  margin: 24px 0 10px;
+  margin: 22px 0 18px;
 }
 
 .primary-cta,
@@ -161,27 +175,104 @@
   transform: translateY(-2px);
 }
 
+.safety-callout,
 .metric-pill,
-.price-grid div,
-.composer-box,
-.friend-card,
-.activity-card,
-.signal-box,
+.summary-card,
+.mode-card,
 .watchlist-card,
-.feature-card {
+.activity-card,
+.position-row,
+.leaderboard-row,
+.admin-card,
+.trade-preview,
+.subpanel,
+.price-grid div {
   border: 1px solid var(--border);
   background: var(--card-bg);
   border-radius: 22px;
 }
 
+.safety-callout,
 .metric-pill,
-.price-grid div,
-.friend-card,
+.summary-card,
+.mode-card,
 .activity-card,
-.signal-box,
-.composer-box,
-.feature-card {
+.position-row,
+.leaderboard-row,
+.admin-card,
+.trade-preview,
+.subpanel,
+.price-grid div {
   padding: 16px;
+}
+
+.safety-callout {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: max-content;
+}
+
+.metric-row,
+.summary-grid,
+.price-grid,
+.admin-actions-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.metric-row,
+.summary-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.metric-row.compact {
+  margin-top: 18px;
+}
+
+.summary-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 18px;
+}
+
+.price-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 16px 0;
+}
+
+.admin-actions-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 16px;
+}
+
+.metric-pill strong,
+.summary-card strong,
+.price-grid strong {
+  display: block;
+  color: var(--text-h);
+  font-size: 1.45rem;
+  margin-bottom: 8px;
+}
+
+.metric-pill span,
+.metric-pill small,
+.summary-card span,
+.summary-card small,
+.watchlist-meta,
+.watchlist-footer,
+.activity-top span,
+.position-row span,
+.leaderboard-row span,
+.brand-subtitle,
+.price-grid span {
+  color: var(--muted);
+}
+
+.metric-pill small,
+.summary-card small {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted-strong);
 }
 
 .float-card {
@@ -197,50 +288,19 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(120deg, transparent 20%, rgba(255,255,255,0.08) 45%, transparent 70%);
+  background: linear-gradient(120deg, transparent 18%, rgba(255,255,255,0.08) 45%, transparent 72%);
   transform: translateX(-120%);
   animation: shimmer 5.5s ease-in-out infinite;
 }
 
-.pulse-card {
-  animation: pulseGlow 4.5s ease-in-out infinite;
-}
-
-.metric-pill strong,
-.price-grid strong,
-.confidence-copy strong {
-  display: block;
-  font-size: 1.5rem;
-  margin-bottom: 8px;
-  color: var(--text-h);
-}
-
-.metric-pill span,
-.price-grid span,
-.confidence-copy span,
-.watchlist-meta,
-.watchlist-footer,
-.activity-top span,
-.friend-card span,
-.brand-subtitle {
-  color: var(--muted);
-  font-size: 0.9rem;
-}
-
-.metric-pill small {
-  display: block;
-  margin-top: 6px;
-  color: var(--muted-strong);
-}
-
-.snapshot-head,
 .panel-head,
 .subpanel-head,
+.snapshot-head,
 .activity-top,
 .watchlist-meta,
 .watchlist-footer,
-.closing-banner,
-.why-now-card {
+.why-now-card,
+.closing-banner {
   display: flex;
   justify-content: space-between;
   gap: 12px;
@@ -248,24 +308,6 @@
 
 .snapshot-head {
   align-items: flex-start;
-}
-
-.price-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin: 20px 0;
-}
-
-.tag-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 18px;
-}
-
-.positive {
-  color: #86efac;
 }
 
 .status-chip,
@@ -284,58 +326,22 @@
 .status-chip {
   color: #07111e;
   font-weight: 700;
+  background: linear-gradient(135deg, #8cf1c7 0%, #66d9ff 50%, #b998ff 100%);
 }
 
-.status-chip.accumulating { background: linear-gradient(135deg, #86efac, #67e8f9); }
-.status-chip.watching { background: linear-gradient(135deg, #fde68a, #f9a8d4); }
-.status-chip.debating { background: linear-gradient(135deg, #c4b5fd, #93c5fd); }
-
-.confidence-block {
-  margin-bottom: 20px;
+.status-chip.closing-soon {
+  background: linear-gradient(135deg, #fde68a 0%, #fb7185 100%);
 }
 
-.confidence-copy {
-  display: flex;
-  justify-content: space-between;
-  align-items: end;
-  margin-bottom: 10px;
-}
-
-.confidence-bar,
-.bar-track {
-  height: 10px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  overflow: hidden;
-}
-
-.confidence-bar div,
-.bar-track div {
-  height: 100%;
-  border-radius: inherit;
-}
-
-.confidence-bar div {
-  background: linear-gradient(90deg, #8b5cf6 0%, #38bdf8 100%);
-}
-
-.bar-track div {
-  background: linear-gradient(90deg, #8cf1c7 0%, #38bdf8 100%);
-}
-
-.bar-track.alt div {
-  background: linear-gradient(90deg, #f59e0b 0%, #f43f5e 100%);
-}
-
-.workspace-grid {
-  display: grid;
-  grid-template-columns: 320px minmax(0, 1fr) 320px;
-  gap: 18px;
-  margin-top: 18px;
+.status-chip.resolved {
+  background: linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%);
 }
 
 .watchlist-stack,
-.activity-stack {
+.mode-stack,
+.activity-stack,
+.table-like-grid,
+.leaderboard-stack {
   display: grid;
   gap: 12px;
   margin-top: 18px;
@@ -363,22 +369,22 @@
 
 .detail-grid {
   display: grid;
-  grid-template-columns: 1.2fr 0.8fr;
+  grid-template-columns: 1.15fr 0.85fr;
   gap: 14px;
-  margin: 18px 0 14px;
+  margin-top: 18px;
 }
 
-.secondary-grid {
-  margin-top: 0;
-}
-
-.subpanel {
-  padding: 18px;
-  border-radius: 22px;
+.trade-preview strong,
+.mode-card strong,
+.admin-card strong,
+.position-row strong,
+.leaderboard-row strong {
+  display: block;
+  margin-bottom: 8px;
 }
 
 .clean-list {
-  margin: 14px 0 0;
+  margin: 12px 0 0;
   padding-left: 18px;
   color: var(--muted);
 }
@@ -391,78 +397,21 @@
   margin-top: 8px;
 }
 
-.composer-box {
-  margin-top: 18px;
-}
-
-.composer-box span {
-  display: block;
-  color: var(--text-h);
-  font-weight: 600;
-  margin-bottom: 8px;
-}
-
-.probability-bars {
-  display: grid;
-  gap: 14px;
-  margin-top: 14px;
-}
-
-.probability-bars span {
-  display: block;
-  color: var(--muted);
-  margin-bottom: 8px;
-}
-
-.friends-grid,
-.feature-grid {
-  display: grid;
-  gap: 12px;
-  margin-top: 14px;
-}
-
-.friends-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.feature-section {
-  margin-top: 18px;
-}
-
-.feature-heading {
-  max-width: 54rem;
-}
-
-.feature-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin-top: 22px;
-}
-
-.feature-index {
-  display: inline-flex;
-  color: var(--muted-strong);
-  font-weight: 700;
-  margin-bottom: 10px;
-}
-
-.friend-card strong {
-  display: block;
-  margin: 10px 0 8px;
-}
-
-.friend-card p,
 .activity-card p,
+.mode-card p,
+.admin-card p,
 .body-copy,
-.feature-card p {
+.trade-preview p,
+.position-row span,
+.leaderboard-row span {
   color: var(--muted);
 }
 
-.activity-card p span {
-  color: var(--text-h);
-}
-
-.signal-box {
-  margin-top: 18px;
+.position-row,
+.leaderboard-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
 }
 
 .eyebrow,
@@ -488,19 +437,17 @@
   55%, 100% { transform: translateX(120%); }
 }
 
-@keyframes pulseGlow {
-  0%, 100% { box-shadow: 0 22px 70px rgba(0, 0, 0, 0.28); }
-  50% { box-shadow: 0 22px 90px rgba(102, 217, 255, 0.2); }
-}
-
 @media (max-width: 1180px) {
-  .workspace-grid,
   .hero-grid,
-  .feature-grid,
+  .dashboard-grid,
+  .workspace-grid,
+  .portfolio-grid,
+  .admin-grid,
+  .detail-grid,
+  .summary-grid,
   .metric-row,
   .price-grid,
-  .detail-grid,
-  .friends-grid,
+  .admin-actions-grid,
   .closing-banner,
   .why-now-card {
     grid-template-columns: 1fr;
@@ -523,7 +470,6 @@
   .panel,
   .subpanel,
   .why-now-card,
-  .feature-section,
   .closing-banner {
     border-radius: 22px;
     padding: 20px;
@@ -531,14 +477,13 @@
 
   .topbar,
   .panel-head,
-  .snapshot-head,
   .subpanel-head,
-  .topbar-nav {
+  .snapshot-head,
+  .topbar-nav,
+  .hero-actions,
+  .position-row,
+  .leaderboard-row {
     flex-direction: column;
     align-items: flex-start;
-  }
-
-  .hero-actions {
-    flex-direction: column;
   }
 }
