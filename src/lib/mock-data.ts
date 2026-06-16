@@ -1,10 +1,12 @@
 import type {
   Activity,
+  LeagueConfig,
   LeagueMember,
   LeagueMode,
   Market,
   MarketSet,
   Position,
+  ResolutionItem,
 } from './types'
 
 export const marketSets: MarketSet[] = [
@@ -30,6 +32,16 @@ export const marketSets: MarketSet[] = [
     leagueCount: 6,
   },
 ]
+
+export const leagueConfig: LeagueConfig = {
+  name: 'Friday Night Futures',
+  inviteCode: 'START123',
+  inviteLink: 'polymates.app/join/START123',
+  approvedSetSlugs: ['world-cup', 'nba-playoffs'],
+  memberCount: 8,
+  startingBalance: 10000,
+  weeklyBonus: 2000,
+}
 
 export const leagueMembers: LeagueMember[] = [
   { name: 'Akash', rank: 1, portfolio: '$10,842', pnl: '+$842', note: 'Macro sharp this week' },
@@ -85,6 +97,33 @@ export const activityFeed: Activity[] = [
   { user: 'Arnav', text: 'sold champion shares for +$118 fantasy profit.', time: '26 min ago' },
   { user: 'Jason', text: 'jumped into USA vs Paraguay after line movement.', time: '41 min ago' },
   { user: 'Akash', text: 'moved to #1 in the league after two good exits.', time: '1 hr ago' },
+]
+
+export const resolutionQueue: ResolutionItem[] = [
+  {
+    id: 'resolve-bra-mor',
+    marketTitle: 'Will Brazil beat Morocco?',
+    league: 'Friday Night Futures',
+    result: 'Pending',
+    status: 'Ready',
+    note: 'Official final available. Ready to settle league positions.',
+  },
+  {
+    id: 'resolve-usa-par',
+    marketTitle: 'Will USA beat Paraguay?',
+    league: 'Weekly Sprint 04',
+    result: 'Pending',
+    status: 'Paused',
+    note: 'Kickoff shifted. Admin should relock before reopening.',
+  },
+  {
+    id: 'resolve-arg-advance',
+    marketTitle: 'Will Argentina advance?',
+    league: 'Friday Night Futures',
+    result: 'YES',
+    status: 'Resolved',
+    note: 'League balances and snapshots already updated.',
+  },
 ]
 
 export const leagueModes: LeagueMode[] = [

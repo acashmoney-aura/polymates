@@ -4,16 +4,18 @@ import logoMark from '/polymates-mark.svg'
 import { estimateBinaryTrade } from './lib/amm'
 import {
   activityFeed,
+  leagueConfig,
   leagueMembers,
   leagueModes,
   markets as fallbackMarkets,
   marketSets,
   positions,
+  resolutionQueue as resolutionQueueSeed,
 } from './lib/mock-data'
 import { fetchPolymarketMarkets } from './lib/polymarket'
 import { productSpec } from './lib/product-spec'
 import { hasSupabaseEnv } from './lib/supabase'
-import type { Market } from './lib/types'
+import type { Market, ResolutionItem } from './lib/types'
 
 const onboardingSteps = [
   'Sign in and claim a username',
@@ -35,9 +37,16 @@ const adminQueue = [
   { label: 'League resets available', value: '2', note: 'Weekly Sprint rolls over tonight' },
 ]
 
+function statusClass(status: string) {
+  return status.toLowerCase().replace(/\s+/g, '-')
+}
+
 function App() {
   const [liveMarkets, setLiveMarkets] = useState<Market[]>([])
   const [liveStatus, setLiveStatus] = useState<'loading' | 'live' | 'fallback'>('loading')
+  const [selectedSetSlugs, setSelectedSetSlugs] = useState<string[]>(leagueConfig.approvedSetSlugs)
+  const [whitelistedMarketIds, setWhitelistedMarketIds] = useState<string[]>([])
+  const [resolutionQueue, setResolutionQueue] = useState<ResolutionItem[]>(resolutionQueueSeed)
   const [selectedMarketId, setSelectedMarketId] = useState(fallbackMarkets[0].id)
 
   useEffect(() => {
@@ -49,7 +58,6 @@ function App() {
         if (cancelled) return
         if (fetched.length > 0) {
           setLiveMarkets(fetched)
-          setSelectedMarketId((current) => current || fetched[0].id)
           setLiveStatus('live')
           return
         }
@@ -65,17 +73,27 @@ function App() {
     }
   }, [])
 
-  const activeMarkets = liveMarkets.length > 0 ? liveMarkets : fallbackMarkets
+  const discoveryMarkets = liveMarkets.length > 0 ? liveMarkets : fallbackMarkets
 
   useEffect(() => {
-    if (!activeMarkets.some((market) => market.id === selectedMarketId)) {
-      setSelectedMarketId(activeMarkets[0]?.id ?? '')
+    if (discoveryMarkets.length === 0 || whitelistedMarketIds.length > 0) return
+    setWhitelistedMarketIds(discoveryMarkets.slice(0, 3).map((market) => market.id))
+  }, [discoveryMarkets, whitelistedMarketIds.length])
+
+  const leagueVisibleMarkets = useMemo(() => {
+    const approved = discoveryMarkets.filter((market) => whitelistedMarketIds.includes(market.id))
+    return approved.length > 0 ? approved : discoveryMarkets
+  }, [discoveryMarkets, whitelistedMarketIds])
+
+  useEffect(() => {
+    if (!leagueVisibleMarkets.some((market) => market.id === selectedMarketId)) {
+      setSelectedMarketId(leagueVisibleMarkets[0]?.id ?? '')
     }
-  }, [activeMarkets, selectedMarketId])
+  }, [leagueVisibleMarkets, selectedMarketId])
 
   const selectedMarket = useMemo(
-    () => activeMarkets.find((market) => market.id === selectedMarketId) ?? activeMarkets[0],
-    [activeMarkets, selectedMarketId],
+    () => leagueVisibleMarkets.find((market) => market.id === selectedMarketId) ?? leagueVisibleMarkets[0],
+    [leagueVisibleMarkets, selectedMarketId],
   )
 
   const tradePreview = useMemo(() => {
@@ -87,10 +105,41 @@ function App() {
     })
   }, [selectedMarket])
 
+  const approvedMarketCount = whitelistedMarketIds.length
+  const approvedSets = marketSets.filter((set) => selectedSetSlugs.includes(set.slug))
+
+  function toggleMarketSet(slug: string) {
+    setSelectedSetSlugs((current) =>
+      current.includes(slug) ? current.filter((item) => item !== slug) : [...current, slug],
+    )
+  }
+
+  function toggleWhitelistedMarket(marketId: string) {
+    setWhitelistedMarketIds((current) =>
+      current.includes(marketId) ? current.filter((item) => item !== marketId) : [...current, marketId],
+    )
+  }
+
+  function updateResolution(id: string, next: Partial<ResolutionItem>) {
+    setResolutionQueue((current) =>
+      current.map((item) => (item.id === id ? { ...item, ...next } : item)),
+    )
+  }
+
   return (
     <main className="app-shell">
       <div className="ambient ambient-one"></div>
       <div className="ambient ambient-two"></div>
+
+      <section className="goal-mode-banner">
+        <div>
+          <p className="eyebrow">GOAL MODE · EXECUTION</p>
+          <strong>Shipping the private-league MVP, not just a pretty mock.</strong>
+        </div>
+        <p>
+          Active scope: real Polymarket discovery, league market whitelisting, invite flow, and admin settlement.
+        </p>
+      </section>
 
       <header className="topbar">
         <div className="brand-lockup">
@@ -103,6 +152,7 @@ function App() {
         <nav className="topbar-nav" aria-label="Primary">
           <a href="#dashboard">Dashboard</a>
           <a href="#market-sets">Market sets</a>
+          <a href="#imports">Imports</a>
           <a href="#markets">Markets</a>
           <a href="#admin">Admin</a>
         </nav>
@@ -111,7 +161,7 @@ function App() {
       <section className="hero-grid">
         <div className="hero-card intro-card">
           <p className="eyebrow">FANTASY PREDICTION LEAGUES</p>
-          <h1>Create a private league. Choose the market packs. Trade fantasy-dollar contracts.</h1>
+          <h1>Create a private league. Choose the market packs. Import live markets. Trade fantasy-dollar contracts.</h1>
           <p className="body-copy hero-copy">
             Polymates gives your group a simulated prediction exchange with league-specific balances,
             configurable market sets, social activity, admin settlement, and portfolio-based competition.
@@ -120,8 +170,8 @@ function App() {
             <a href="#dashboard" className="primary-cta">
               Explore MVP
             </a>
-            <a href="#markets" className="secondary-cta">
-              View live-connected feed
+            <a href="#imports" className="secondary-cta">
+              Whitelist live markets
             </a>
           </div>
           <div className="safety-callout">
@@ -140,24 +190,24 @@ function App() {
           <div className="snapshot-head">
             <div>
               <p className="section-label">Default league shape</p>
-              <h2>Private league + global market packs</h2>
+              <h2>Private league + live discovery + admin controls</h2>
             </div>
             <span className="status-chip open">MVP</span>
           </div>
           <div className="metric-row compact">
             <article className="metric-pill float-card">
-              <strong>${productSpec.defaultRules.startingBalance.toLocaleString()}</strong>
+              <strong>${leagueConfig.startingBalance.toLocaleString()}</strong>
               <span>Starting balance</span>
               <small>Fantasy bankroll</small>
             </article>
             <article className="metric-pill float-card">
-              <strong>${productSpec.defaultRules.weeklyBonus.toLocaleString()}</strong>
-              <span>Weekly bonus</span>
-              <small>Optional reset mechanic</small>
+              <strong>{approvedMarketCount}</strong>
+              <span>League-approved markets</span>
+              <small>Whitelisted from the live feed</small>
             </article>
             <article className="metric-pill float-card">
-              <strong>{marketSets.length}</strong>
-              <span>Starter market packs</span>
+              <strong>{approvedSets.length}</strong>
+              <span>Approved market packs</span>
               <small>World Cup is just one pack</small>
             </article>
           </div>
@@ -171,7 +221,7 @@ function App() {
         </div>
         <p className="body-copy">
           Start with league-approved market sets, simulated AMM pricing, a real Polymarket discovery layer,
-          and admin-friendly settlement. That gives you the game loop and social energy without the compliance nightmare.
+          invite-only competition, and admin-friendly settlement. That gives you the game loop without the compliance headache.
         </p>
       </section>
 
@@ -198,12 +248,12 @@ function App() {
             <article className="summary-card">
               <span>League rank</span>
               <strong>#1</strong>
-              <small>Out of 8 friends</small>
+              <small>Out of {leagueConfig.memberCount} friends</small>
             </article>
             <article className="summary-card">
               <span>Markets today</span>
-              <strong>{activeMarkets.length}</strong>
-              <small>{liveStatus === 'live' ? 'Pulled from live Polymarket feed' : 'Fallback demo markets'}</small>
+              <strong>{leagueVisibleMarkets.length}</strong>
+              <small>{liveStatus === 'live' ? 'Approved from live Polymarket feed' : 'Fallback demo markets'}</small>
             </article>
           </div>
         </section>
@@ -235,24 +285,32 @@ function App() {
           <span className="soft-chip">Global market packs, league-specific competition</span>
         </div>
         <div className="market-set-grid">
-          {marketSets.map((set) => (
-            <article key={set.slug} className="mode-card">
-              <strong>{set.title}</strong>
-              <p>{set.description}</p>
-              <small>{set.eventCount} events · {set.leagueCount} sample leagues</small>
-            </article>
-          ))}
+          {marketSets.map((set) => {
+            const active = selectedSetSlugs.includes(set.slug)
+            return (
+              <article key={set.slug} className={`mode-card selectable-card ${active ? 'selected' : ''}`}>
+                <div className="selectable-head">
+                  <strong>{set.title}</strong>
+                  <button type="button" className={`mini-button ${active ? 'active' : ''}`} onClick={() => toggleMarketSet(set.slug)}>
+                    {active ? 'Allowed' : 'Allow'}
+                  </button>
+                </div>
+                <p>{set.description}</p>
+                <small>{set.eventCount} events · {set.leagueCount} sample leagues</small>
+              </article>
+            )
+          })}
         </div>
       </section>
 
-      <section className="flow-grid">
+      <section className="league-builder-grid">
         <section className="panel create-league-panel">
           <div className="panel-head">
             <div>
-              <p className="section-label">League creation flow</p>
-              <h3>What a first-time user actually does</h3>
+              <p className="section-label">League creation + invite flow</p>
+              <h3>{leagueConfig.name}</h3>
             </div>
-            <span className="soft-chip">Invite code: START123</span>
+            <span className="soft-chip">Invite code: {leagueConfig.inviteCode}</span>
           </div>
           <div className="step-grid">
             {onboardingSteps.map((step, index) => (
@@ -261,6 +319,18 @@ function App() {
                 <p>{step}</p>
               </article>
             ))}
+          </div>
+          <div className="invite-grid">
+            <article className="info-card">
+              <span>Invite link</span>
+              <strong>{leagueConfig.inviteLink}</strong>
+              <small>Share in group chat and onboard friends instantly.</small>
+            </article>
+            <article className="info-card">
+              <span>League rules</span>
+              <strong>${leagueConfig.startingBalance.toLocaleString()} start · ${leagueConfig.weeklyBonus.toLocaleString()} weekly</strong>
+              <small>{leagueConfig.memberCount} current members · invite-only</small>
+            </article>
           </div>
         </section>
 
@@ -282,19 +352,80 @@ function App() {
         </aside>
       </section>
 
+      <section className="imports-grid" id="imports">
+        <section className="panel import-panel">
+          <div className="panel-head">
+            <div>
+              <p className="section-label">Real Polymarket connection</p>
+              <h3>Import or whitelist live markets for your league</h3>
+            </div>
+            <span className="soft-chip">{liveStatus === 'live' ? 'Live feed' : liveStatus === 'loading' ? 'Connecting' : 'Fallback data'}</span>
+          </div>
+          <div className="import-stack">
+            {discoveryMarkets.slice(0, 6).map((market) => {
+              const approved = whitelistedMarketIds.includes(market.id)
+              return (
+                <article key={market.id} className={`import-row ${approved ? 'selected' : ''}`}>
+                  <div>
+                    <strong>{market.title}</strong>
+                    <p>{market.stage} · {market.volume}</p>
+                    <small>{market.closes}</small>
+                  </div>
+                  <div className="import-actions">
+                    <button type="button" className="mini-button" onClick={() => setSelectedMarketId(market.id)}>
+                      Inspect
+                    </button>
+                    <button
+                      type="button"
+                      className={`mini-button ${approved ? 'active' : ''}`}
+                      onClick={() => toggleWhitelistedMarket(market.id)}
+                    >
+                      {approved ? 'Approved' : 'Approve'}
+                    </button>
+                  </div>
+                </article>
+              )
+            })}
+          </div>
+        </section>
+
+        <aside className="panel approved-panel">
+          <div className="panel-head">
+            <div>
+              <p className="section-label">League whitelist</p>
+              <h3>What players can actually trade</h3>
+            </div>
+          </div>
+          <div className="approved-stack">
+            {approvedSets.map((set) => (
+              <span key={set.slug} className="invite-pill">{set.title}</span>
+            ))}
+          </div>
+          <div className="queue-stack compact-top">
+            {leagueVisibleMarkets.slice(0, 4).map((market) => (
+              <article key={market.id} className="queue-card">
+                <strong>{market.yesPrice}¢ YES</strong>
+                <span>{market.title}</span>
+                <small>Approved for {leagueConfig.name}</small>
+              </article>
+            ))}
+          </div>
+        </aside>
+      </section>
+
       <section className="workspace-grid" id="markets">
         <aside className="panel watchlist-panel">
           <div className="panel-head">
             <div>
-              <p className="section-label">Market feed</p>
-              <h3>{liveStatus === 'live' ? 'Live Polymarket-connected contracts' : 'Upcoming contracts'}</h3>
+              <p className="section-label">League market feed</p>
+              <h3>{liveStatus === 'live' ? 'Approved live-connected contracts' : 'Approved contracts'}</h3>
             </div>
             <button type="button" className="ghost-button">
               + Create market
             </button>
           </div>
           <div className="watchlist-stack">
-            {activeMarkets.map((market) => {
+            {leagueVisibleMarkets.map((market) => {
               const active = market.id === selectedMarket?.id
               return (
                 <button
@@ -368,14 +499,13 @@ function App() {
 
           <article className="subpanel resolution-panel">
             <div className="subpanel-head">
-              <p className="section-label">Resolution rules</p>
-              <span className={`status-chip ${selectedMarket?.status.toLowerCase().replace(' ', '-')}`}>
+              <p className="section-label">League eligibility + resolution rules</p>
+              <span className={`status-chip ${statusClass(selectedMarket?.status ?? 'Open')}`}>
                 {selectedMarket?.status}
               </span>
             </div>
             <p className="body-copy">
-              Markets lock at start time and settle after the final result or defined event outcome.
-              MVP admin tools can resolve manually before feed automation is added.
+              Only whitelisted markets are visible inside a league. Markets lock at start time and settle after the final result or defined event outcome.
             </p>
           </article>
         </section>
@@ -459,10 +589,35 @@ function App() {
           <div className="panel-head">
             <div>
               <p className="section-label">Admin + settlement tools</p>
-              <h3>Still mandatory in the MVP</h3>
+              <h3>Resolve, pause, and repair the league runtime</h3>
             </div>
           </div>
-          <div className="admin-actions-grid">
+          <div className="resolution-stack">
+            {resolutionQueue.map((item) => (
+              <article key={item.id} className="resolution-row">
+                <div>
+                  <div className="selectable-head">
+                    <strong>{item.marketTitle}</strong>
+                    <span className={`status-chip ${statusClass(item.status)}`}>{item.status}</span>
+                  </div>
+                  <p>{item.league}</p>
+                  <small>{item.note}</small>
+                </div>
+                <div className="resolution-actions">
+                  <button type="button" className="mini-button" onClick={() => updateResolution(item.id, { status: 'Resolved', result: 'YES', note: 'Resolved YES and pushed league payout snapshot.' })}>
+                    Resolve YES
+                  </button>
+                  <button type="button" className="mini-button" onClick={() => updateResolution(item.id, { status: 'Resolved', result: 'NO', note: 'Resolved NO and pushed league payout snapshot.' })}>
+                    Resolve NO
+                  </button>
+                  <button type="button" className="mini-button" onClick={() => updateResolution(item.id, { status: 'Paused', result: item.result === 'Pending' ? 'Pending' : item.result, note: 'Paused for admin review before reopening or resettling.' })}>
+                    Pause
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+          <div className="admin-actions-grid compact-top">
             <article className="admin-card">
               <strong>Create / pause markets</strong>
               <p>Seed markets from approved market packs and lock them at the correct time.</p>

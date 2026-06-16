@@ -35,7 +35,8 @@
 .panel,
 .subpanel,
 .why-now-card,
-.closing-banner {
+.closing-banner,
+.goal-mode-banner {
   border: 1px solid var(--border);
   background: var(--panel);
   box-shadow: var(--shadow-soft);
@@ -46,7 +47,8 @@
 .hero-card,
 .panel,
 .why-now-card,
-.closing-banner {
+.closing-banner,
+.goal-mode-banner {
   border-radius: 28px;
 }
 
@@ -55,8 +57,28 @@
 .panel,
 .why-now-card,
 .closing-banner,
-.subpanel {
+.subpanel,
+.goal-mode-banner {
   padding: 24px;
+}
+
+.goal-mode-banner {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+  background: linear-gradient(135deg, rgba(125, 211, 252, 0.12), rgba(168, 85, 247, 0.12));
+}
+
+.goal-mode-banner strong {
+  display: block;
+  color: var(--text-h);
+  margin-top: 4px;
+}
+
+.goal-mode-banner p:last-child {
+  max-width: 50ch;
+  color: var(--muted);
 }
 
 .topbar {
@@ -106,7 +128,18 @@
 .flow-grid,
 .step-grid,
 .notification-stack,
-.queue-stack {
+.queue-stack,
+.league-builder-grid,
+.imports-grid,
+.invite-grid,
+.detail-grid,
+.metric-row,
+.summary-grid,
+.price-grid,
+.admin-actions-grid,
+.approved-stack,
+.import-stack,
+.resolution-stack {
   display: grid;
   gap: 18px;
 }
@@ -121,12 +154,13 @@
 }
 
 .market-set-panel,
+.league-builder-grid,
+.imports-grid,
+.workspace-grid,
+.portfolio-grid,
+.admin-grid,
 .flow-grid {
   margin-top: 18px;
-}
-
-.flow-grid {
-  grid-template-columns: 1.2fr 0.8fr;
 }
 
 .market-set-grid {
@@ -134,15 +168,15 @@
   margin-top: 18px;
 }
 
-.workspace-grid {
-  grid-template-columns: 320px minmax(0, 1fr) 320px;
-  margin-top: 18px;
+.league-builder-grid,
+.imports-grid,
+.admin-grid,
+.portfolio-grid {
+  grid-template-columns: 1.15fr 0.85fr;
 }
 
-.portfolio-grid,
-.admin-grid {
-  grid-template-columns: 1.1fr 0.9fr;
-  margin-top: 18px;
+.workspace-grid {
+  grid-template-columns: 320px minmax(0, 1fr) 320px;
 }
 
 .hero-copy {
@@ -158,30 +192,36 @@
 .primary-cta,
 .secondary-cta,
 .ghost-button,
-.watchlist-card {
+.watchlist-card,
+.mini-button {
   transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
 
 .primary-cta,
-.secondary-cta {
+.secondary-cta,
+.mini-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 48px;
-  padding: 0 18px;
+  min-height: 40px;
+  padding: 0 16px;
   border-radius: 999px;
   text-decoration: none;
   font-weight: 700;
 }
 
-.primary-cta {
+.primary-cta,
+.mini-button.active,
+.status-chip.open,
+.status-chip.ready {
   color: #07111e;
   background: linear-gradient(135deg, #8cf1c7 0%, #66d9ff 50%, #b998ff 100%);
   box-shadow: 0 16px 44px rgba(102, 217, 255, 0.2);
 }
 
 .secondary-cta,
-.ghost-button {
+.ghost-button,
+.mini-button {
   color: var(--text-h);
   border: 1px solid var(--border-strong);
   background: rgba(255, 255, 255, 0.03);
@@ -190,7 +230,8 @@
 .primary-cta:hover,
 .secondary-cta:hover,
 .ghost-button:hover,
-.watchlist-card:hover {
+.watchlist-card:hover,
+.mini-button:hover {
   transform: translateY(-2px);
 }
 
@@ -208,7 +249,10 @@
 .price-grid div,
 .step-card,
 .notification-card,
-.queue-card {
+.queue-card,
+.info-card,
+.import-row,
+.resolution-row {
   border: 1px solid var(--border);
   background: var(--card-bg);
   border-radius: 22px;
@@ -227,8 +271,17 @@
 .price-grid div,
 .step-card,
 .notification-card,
-.queue-card {
+.queue-card,
+.info-card,
+.import-row,
+.resolution-row {
   padding: 16px;
+}
+
+.selectable-card.selected,
+.import-row.selected {
+  border-color: rgba(125, 211, 252, 0.5);
+  box-shadow: inset 0 0 0 1px rgba(125, 211, 252, 0.1);
 }
 
 .safety-callout {
@@ -236,14 +289,6 @@
   flex-direction: column;
   gap: 6px;
   max-width: max-content;
-}
-
-.metric-row,
-.summary-grid,
-.price-grid,
-.admin-actions-grid {
-  display: grid;
-  gap: 14px;
 }
 
 .metric-row,
@@ -267,27 +312,42 @@
 
 .admin-actions-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-top: 16px;
 }
 
-.step-grid {
+.step-grid,
+.invite-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin-top: 16px;
 }
 
+.approved-stack {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .notification-stack,
-.queue-stack {
+.queue-stack,
+.import-stack,
+.resolution-stack {
   margin-top: 16px;
 }
 
 .metric-pill strong,
 .summary-card strong,
 .price-grid strong,
-.queue-card strong {
+.queue-card strong,
+.info-card strong,
+.goal-mode-banner strong {
   display: block;
   color: var(--text-h);
-  font-size: 1.45rem;
+  font-size: 1.15rem;
   margin-bottom: 8px;
+}
+
+.metric-pill strong,
+.summary-card strong,
+.price-grid strong,
+.queue-card strong {
+  font-size: 1.45rem;
 }
 
 .metric-pill span,
@@ -301,13 +361,30 @@
 .leaderboard-row span,
 .brand-subtitle,
 .price-grid span,
-.queue-card span {
+.queue-card span,
+.info-card span,
+.info-card small,
+.import-row small,
+.import-row p,
+.resolution-row p,
+.resolution-row small,
+.goal-mode-banner p,
+.notification-card p,
+.step-card p,
+.mode-card p,
+.admin-card p,
+.body-copy,
+.trade-preview p,
+.queue-card small {
   color: var(--muted);
 }
 
 .metric-pill small,
 .summary-card small,
-.queue-card small {
+.queue-card small,
+.info-card small,
+.import-row small,
+.resolution-row small {
   display: block;
   margin-top: 6px;
   color: var(--muted-strong);
@@ -338,27 +415,40 @@
 .watchlist-meta,
 .watchlist-footer,
 .why-now-card,
-.closing-banner {
+.closing-banner,
+.selectable-head,
+.import-row,
+.resolution-row,
+.import-actions,
+.resolution-actions {
   display: flex;
   justify-content: space-between;
   gap: 12px;
 }
 
-.snapshot-head {
+.snapshot-head,
+.import-actions,
+.resolution-actions {
   align-items: flex-start;
 }
 
 .status-chip,
-.soft-chip {
+.soft-chip,
+.invite-pill {
   border-radius: 999px;
   padding: 8px 12px;
   font-size: 0.86rem;
 }
 
-.soft-chip {
+.soft-chip,
+.invite-pill {
   color: var(--text-h);
   border: 1px solid var(--border);
   background: var(--chip-bg);
+}
+
+.invite-pill {
+  text-align: center;
 }
 
 .status-chip {
@@ -373,6 +463,10 @@
 
 .status-chip.resolved {
   background: linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%);
+}
+
+.status-chip.paused {
+  background: linear-gradient(135deg, #fda4af 0%, #fb7185 100%);
 }
 
 .watchlist-stack,
@@ -405,19 +499,14 @@
   font-size: 1rem;
 }
 
-.detail-grid {
-  display: grid;
-  grid-template-columns: 1.15fr 0.85fr;
-  gap: 14px;
-  margin-top: 18px;
-}
-
 .trade-preview strong,
 .mode-card strong,
 .admin-card strong,
 .position-row strong,
 .leaderboard-row strong,
-.notification-card strong {
+.notification-card strong,
+.import-row strong,
+.resolution-row strong {
   display: block;
   margin-bottom: 8px;
 }
@@ -434,18 +523,6 @@
 
 .clean-list.compact li + li {
   margin-top: 8px;
-}
-
-.activity-card p,
-.mode-card p,
-.admin-card p,
-.body-copy,
-.trade-preview p,
-.position-row span,
-.leaderboard-row span,
-.notification-card p,
-.step-card p {
-  color: var(--muted);
 }
 
 .step-index {
@@ -493,7 +570,8 @@
   .hero-grid,
   .dashboard-grid,
   .market-set-grid,
-  .flow-grid,
+  .league-builder-grid,
+  .imports-grid,
   .workspace-grid,
   .portfolio-grid,
   .admin-grid,
@@ -503,13 +581,18 @@
   .price-grid,
   .admin-actions-grid,
   .step-grid,
+  .invite-grid,
+  .approved-stack,
   .closing-banner,
   .why-now-card {
     grid-template-columns: 1fr;
   }
 
   .closing-banner,
-  .why-now-card {
+  .why-now-card,
+  .goal-mode-banner,
+  .import-row,
+  .resolution-row {
     display: grid;
   }
 }
@@ -525,7 +608,8 @@
   .panel,
   .subpanel,
   .why-now-card,
-  .closing-banner {
+  .closing-banner,
+  .goal-mode-banner {
     border-radius: 22px;
     padding: 20px;
   }
@@ -537,7 +621,10 @@
   .topbar-nav,
   .hero-actions,
   .position-row,
-  .leaderboard-row {
+  .leaderboard-row,
+  .selectable-head,
+  .import-actions,
+  .resolution-actions {
     flex-direction: column;
     align-items: flex-start;
   }

@@ -47,3 +47,24 @@ export type LeagueMode = {
   title: string
   body: string
 }
+
+export type LeagueConfig = {
+  name: string
+  inviteCode: string
+  inviteLink: string
+  approvedSetSlugs: string[]
+  memberCount: number
+  startingBalance: number
+  weeklyBonus: number
+}
+
+export type ResolutionStatus = 'Ready' | 'Paused' | 'Resolved'
+
+export type ResolutionItem = {
+  id: string
+  marketTitle: string
+  league: string
+  result: 'YES' | 'NO' | 'Pending'
+  status: ResolutionStatus
+  note: string
+}

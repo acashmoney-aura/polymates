@@ -1,45 +1,55 @@
 {
-  "id": "polymates-mvp-2026-06-15",
-  "title": "Polymates app-shell MVP",
+  "id": "polymates-fantasy-league-2026-06-15",
+  "title": "Polymates private fantasy league MVP",
   "mode": "execution",
-  "goal": "Turn Polymates from a starter/landing page into a convincing product MVP for collaborative Polymarket tracking.",
+  "goal": "Turn Polymates into a convincing private fantasy prediction league MVP with live Polymarket discovery, league-approved market whitelisting, invite flow, and admin settlement controls.",
   "successCriteria": [
-    "Product is an app shell, not a starter page",
-    "Core surfaces exist: watchlist, market detail, catalysts, friend activity, and thesis tracking",
-    "UI feels coherent and demoable on desktop and mobile",
-    "Branding, SEO, and visual polish are present",
+    "Real Polymarket market discovery is wired into the app with fallback behavior",
+    "League admins can whitelist/import visible markets into their private league flow",
+    "League creation and invite flow are represented in the UI",
+    "Admin settlement surface exists with concrete resolve/pause actions",
     "Project builds successfully",
-    "Repo is isolated enough to commit and push cleanly"
+    "Changes are committed and pushed incrementally"
   ],
   "constraints": {
     "stack": "React + TypeScript + Vite",
-    "scope": "frontend MVP with mock data",
+    "scope": "frontend MVP plus backend scaffold; no real-money features",
     "externalWritesAllowed": [
       "git push to GitHub"
     ],
     "approvalRequiredFor": [
-      "new external accounts/services beyond GitHub push"
+      "new external accounts/services beyond GitHub push",
+      "real-money, payout, or public posting features"
     ],
     "runtimePreference": "continue until done or truly blocked"
   },
-  "state": {
-    "status": "completed",
-    "completed": [
-      "Inspected repo",
-      "Replaced starter with first-pass concept landing page",
-      "Upgraded to app-shell MVP with watchlist, market detail, catalysts, friend takes, and activity feed",
-      "Added local Goal Mode skill",
-      "Added branding, logo, social card, richer layout, and motion polish",
-      "Added SEO metadata and software application schema",
-      "Verified production build",
-      "Isolated repo and pushed MVP to GitHub"
-    ],
-    "currentStep": "Goal complete",
-    "nextStep": "Optional future work: backend, auth, real market data, collaborative rooms"
-  },
+  "status": "running",
+  "currentStep": "Build-check, commit, and push the goal-mode increment",
+  "plan": [
+    "Wire live Polymarket discovery with graceful fallback",
+    "Add league market-set selection and live-market whitelisting UX",
+    "Add league creation/invite flow surface",
+    "Add concrete admin settlement controls",
+    "Verify build and push increment"
+  ],
+  "checkpoints": [
+    "Keep fantasy-dollar framing explicit",
+    "Do not drift into real-money or sportsbook features"
+  ],
   "stopConditions": [
     "Success criteria met",
-    "Blocked by missing credentials/repo destination",
-    "Build cannot be restored in bounded time"
-  ]
+    "Blocked by missing credentials or broken build",
+    "External API becomes inaccessible and no safe fallback exists"
+  ],
+  "state": {
+    "completed": [
+      "Real Polymarket Gamma API connection added with fallback",
+      "League-approved market sets remain configurable",
+      "League creation and invite flow UI added",
+      "Live market whitelist/import panel added",
+      "Admin settlement console added"
+    ],
+    "nextStep": "Run build, then commit and push this increment",
+    "blockers": []
+  }
 }
