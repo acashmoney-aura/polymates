@@ -18,6 +18,8 @@ To build this app properly, it needs six core pieces:
 The MVP should **not** start with real-money trading, sportsbooks, or a complex financial order book.
 It should start with **simulated Polymarket-style markets** using fantasy dollars.
 
+It can still use a **real Polymarket connection as a discovery/input layer** for whitelisting or mirroring live public markets into fantasy leagues.
+
 ## Product shape
 
 Important correction:
@@ -158,6 +160,7 @@ Key concepts:
 - League-specific balances and leaderboards
 - Fantasy-dollar trading only
 - Simulated AMM pricing
+- Real Polymarket connection for live market discovery
 - Admin settlement tools
 
 Main data entities:

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 import logoMark from '/polymates-mark.svg'
 import { estimateBinaryTrade } from './lib/amm'
@@ -6,30 +6,86 @@ import {
   activityFeed,
   leagueMembers,
   leagueModes,
-  markets,
+  markets as fallbackMarkets,
   marketSets,
   positions,
 } from './lib/mock-data'
+import { fetchPolymarketMarkets } from './lib/polymarket'
 import { productSpec } from './lib/product-spec'
 import { hasSupabaseEnv } from './lib/supabase'
+import type { Market } from './lib/types'
+
+const onboardingSteps = [
+  'Sign in and claim a username',
+  'Create or join a private league',
+  'Pick the market sets your league allows',
+  'Receive your fantasy bankroll',
+  'Start trading YES / NO contracts',
+]
+
+const notifications = [
+  'Brazil vs Morocco closes in 42 minutes',
+  'Maya just passed Jason on the leaderboard',
+  '2 markets resolved and league snapshots updated',
+]
+
+const adminQueue = [
+  { label: 'Markets pending resolution', value: '3', note: 'Final scores available, waiting for admin confirm' },
+  { label: 'Paused markets', value: '1', note: 'Event start time changed' },
+  { label: 'League resets available', value: '2', note: 'Weekly Sprint rolls over tonight' },
+]
 
 function App() {
-  const [selectedMarketId, setSelectedMarketId] = useState(markets[0].id)
+  const [liveMarkets, setLiveMarkets] = useState<Market[]>([])
+  const [liveStatus, setLiveStatus] = useState<'loading' | 'live' | 'fallback'>('loading')
+  const [selectedMarketId, setSelectedMarketId] = useState(fallbackMarkets[0].id)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadLiveMarkets() {
+      try {
+        const fetched = await fetchPolymarketMarkets()
+        if (cancelled) return
+        if (fetched.length > 0) {
+          setLiveMarkets(fetched)
+          setSelectedMarketId((current) => current || fetched[0].id)
+          setLiveStatus('live')
+          return
+        }
+        setLiveStatus('fallback')
+      } catch {
+        if (!cancelled) setLiveStatus('fallback')
+      }
+    }
+
+    void loadLiveMarkets()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const activeMarkets = liveMarkets.length > 0 ? liveMarkets : fallbackMarkets
+
+  useEffect(() => {
+    if (!activeMarkets.some((market) => market.id === selectedMarketId)) {
+      setSelectedMarketId(activeMarkets[0]?.id ?? '')
+    }
+  }, [activeMarkets, selectedMarketId])
 
   const selectedMarket = useMemo(
-    () => markets.find((market) => market.id === selectedMarketId) ?? markets[0],
-    [selectedMarketId],
+    () => activeMarkets.find((market) => market.id === selectedMarketId) ?? activeMarkets[0],
+    [activeMarkets, selectedMarketId],
   )
 
-  const tradePreview = useMemo(
-    () =>
-      estimateBinaryTrade({
-        currentYesPrice: selectedMarket.yesPrice,
-        shares: 100,
-        side: 'YES',
-      }),
-    [selectedMarket],
-  )
+  const tradePreview = useMemo(() => {
+    if (!selectedMarket) return null
+    return estimateBinaryTrade({
+      currentYesPrice: selectedMarket.yesPrice,
+      shares: 100,
+      side: 'YES',
+    })
+  }, [selectedMarket])
 
   return (
     <main className="app-shell">
@@ -64,8 +120,8 @@ function App() {
             <a href="#dashboard" className="primary-cta">
               Explore MVP
             </a>
-            <a href="#market-sets" className="secondary-cta">
-              View market packs
+            <a href="#markets" className="secondary-cta">
+              View live-connected feed
             </a>
           </div>
           <div className="safety-callout">
@@ -73,6 +129,9 @@ function App() {
             <span>No cash value · No deposits · No withdrawals</span>
             <small>
               Backend status: {hasSupabaseEnv ? 'Supabase env detected' : 'Supabase env scaffolded, credentials still needed'}
+            </small>
+            <small>
+              Polymarket feed: {liveStatus === 'live' ? 'live Gamma API connection active' : liveStatus === 'loading' ? 'connecting…' : 'fallback mock feed active'}
             </small>
           </div>
         </div>
@@ -111,8 +170,8 @@ function App() {
           <h2>Make the Polymarket feel social and safe before touching real-money complexity.</h2>
         </div>
         <p className="body-copy">
-          Start with league-approved market sets, simulated AMM pricing, and admin-friendly settlement.
-          That gives you the game loop and social energy without the compliance nightmare.
+          Start with league-approved market sets, simulated AMM pricing, a real Polymarket discovery layer,
+          and admin-friendly settlement. That gives you the game loop and social energy without the compliance nightmare.
         </p>
       </section>
 
@@ -143,8 +202,8 @@ function App() {
             </article>
             <article className="summary-card">
               <span>Markets today</span>
-              <strong>6</strong>
-              <small>2 close in under 3h</small>
+              <strong>{activeMarkets.length}</strong>
+              <small>{liveStatus === 'live' ? 'Pulled from live Polymarket feed' : 'Fallback demo markets'}</small>
             </article>
           </div>
         </section>
@@ -186,20 +245,57 @@ function App() {
         </div>
       </section>
 
+      <section className="flow-grid">
+        <section className="panel create-league-panel">
+          <div className="panel-head">
+            <div>
+              <p className="section-label">League creation flow</p>
+              <h3>What a first-time user actually does</h3>
+            </div>
+            <span className="soft-chip">Invite code: START123</span>
+          </div>
+          <div className="step-grid">
+            {onboardingSteps.map((step, index) => (
+              <article key={step} className="step-card">
+                <span className="step-index">0{index + 1}</span>
+                <p>{step}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <aside className="panel notification-panel">
+          <div className="panel-head">
+            <div>
+              <p className="section-label">In-app notifications</p>
+              <h3>Enough to keep leagues alive</h3>
+            </div>
+          </div>
+          <div className="notification-stack">
+            {notifications.map((notification) => (
+              <article key={notification} className="notification-card">
+                <strong>Alert</strong>
+                <p>{notification}</p>
+              </article>
+            ))}
+          </div>
+        </aside>
+      </section>
+
       <section className="workspace-grid" id="markets">
         <aside className="panel watchlist-panel">
           <div className="panel-head">
             <div>
               <p className="section-label">Market feed</p>
-              <h3>Upcoming contracts</h3>
+              <h3>{liveStatus === 'live' ? 'Live Polymarket-connected contracts' : 'Upcoming contracts'}</h3>
             </div>
             <button type="button" className="ghost-button">
               + Create market
             </button>
           </div>
           <div className="watchlist-stack">
-            {markets.map((market) => {
-              const active = market.id === selectedMarket.id
+            {activeMarkets.map((market) => {
+              const active = market.id === selectedMarket?.id
               return (
                 <button
                   type="button"
@@ -226,30 +322,30 @@ function App() {
           <div className="panel-head">
             <div>
               <p className="section-label">Market workspace</p>
-              <h3>{selectedMarket.title}</h3>
+              <h3>{selectedMarket?.title}</h3>
             </div>
-            <span className="soft-chip">{selectedMarket.stage}</span>
+            <span className="soft-chip">{selectedMarket?.stage}</span>
           </div>
 
           <div className="detail-grid">
             <article className="subpanel market-pricing-panel">
-              <p className="section-label">Simulated market pricing</p>
+              <p className="section-label">{liveStatus === 'live' ? 'Live Polymarket pricing' : 'Simulated market pricing'}</p>
               <div className="price-grid">
                 <div>
                   <span>YES price</span>
-                  <strong>{selectedMarket.yesPrice}¢</strong>
+                  <strong>{selectedMarket?.yesPrice}¢</strong>
                 </div>
                 <div>
                   <span>NO price</span>
-                  <strong>{selectedMarket.noPrice}¢</strong>
+                  <strong>{selectedMarket?.noPrice}¢</strong>
                 </div>
                 <div>
                   <span>Volume</span>
-                  <strong>{selectedMarket.volume}</strong>
+                  <strong>{selectedMarket?.volume}</strong>
                 </div>
               </div>
-              <p className="body-copy">{selectedMarket.closes}</p>
-              <p className="body-copy">{selectedMarket.rules}</p>
+              <p className="body-copy">{selectedMarket?.closes}</p>
+              <p className="body-copy">{selectedMarket?.rules}</p>
             </article>
 
             <article className="subpanel trade-panel">
@@ -257,13 +353,15 @@ function App() {
               <div className="trade-preview">
                 <strong>Buy 100 YES shares</strong>
                 <p>Estimated with a simple MVP AMM, not an order book.</p>
-                <ul className="clean-list compact">
-                  <li>Entry price: {tradePreview.entryPrice}¢</li>
-                  <li>Post-trade estimate: {tradePreview.exitPriceEstimate}¢</li>
-                  <li>Estimated cost: ${tradePreview.cost}</li>
-                  <li>Max payout: ${tradePreview.maxPayout}</li>
-                  <li>Potential profit: ${tradePreview.maxProfit}</li>
-                </ul>
+                {tradePreview && (
+                  <ul className="clean-list compact">
+                    <li>Entry price: {tradePreview.entryPrice}¢</li>
+                    <li>Post-trade estimate: {tradePreview.exitPriceEstimate}¢</li>
+                    <li>Estimated cost: ${tradePreview.cost}</li>
+                    <li>Max payout: ${tradePreview.maxPayout}</li>
+                    <li>Potential profit: ${tradePreview.maxProfit}</li>
+                  </ul>
+                )}
               </div>
             </article>
           </div>
@@ -271,8 +369,8 @@ function App() {
           <article className="subpanel resolution-panel">
             <div className="subpanel-head">
               <p className="section-label">Resolution rules</p>
-              <span className={`status-chip ${selectedMarket.status.toLowerCase().replace(' ', '-')}`}>
-                {selectedMarket.status}
+              <span className={`status-chip ${selectedMarket?.status.toLowerCase().replace(' ', '-')}`}>
+                {selectedMarket?.status}
               </span>
             </div>
             <p className="body-copy">
@@ -387,11 +485,20 @@ function App() {
         <aside className="panel scope-panel">
           <div className="panel-head">
             <div>
-              <p className="section-label">Protected scope</p>
-              <h3>Keep v1 tight</h3>
+              <p className="section-label">Admin queue</p>
+              <h3>Operational MVP surface</h3>
             </div>
           </div>
-          <ul className="clean-list compact">
+          <div className="queue-stack">
+            {adminQueue.map((item) => (
+              <article key={item.label} className="queue-card">
+                <strong>{item.value}</strong>
+                <span>{item.label}</span>
+                <small>{item.note}</small>
+              </article>
+            ))}
+          </div>
+          <ul className="clean-list compact compact-top">
             <li>No real money</li>
             <li>No deposits or withdrawals</li>
             <li>No public markets</li>
@@ -409,8 +516,8 @@ function App() {
           <h2>Fantasy prediction league engine — not sportsbook clone.</h2>
         </div>
         <p className="body-copy">
-          Create a private league, approve the market sets you want, trade fantasy-dollar contracts,
-          and compete with friends on portfolio value.
+          Create a private league, approve the market sets you want, mirror or whitelist real Polymarket discovery,
+          trade fantasy-dollar contracts, and compete with friends on portfolio value.
         </p>
       </section>
     </main>

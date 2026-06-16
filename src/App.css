@@ -102,7 +102,11 @@
 .workspace-grid,
 .portfolio-grid,
 .admin-grid,
-.market-set-grid {
+.market-set-grid,
+.flow-grid,
+.step-grid,
+.notification-stack,
+.queue-stack {
   display: grid;
   gap: 18px;
 }
@@ -116,8 +120,13 @@
   margin-top: 18px;
 }
 
-.market-set-panel {
+.market-set-panel,
+.flow-grid {
   margin-top: 18px;
+}
+
+.flow-grid {
+  grid-template-columns: 1.2fr 0.8fr;
 }
 
 .market-set-grid {
@@ -196,7 +205,10 @@
 .admin-card,
 .trade-preview,
 .subpanel,
-.price-grid div {
+.price-grid div,
+.step-card,
+.notification-card,
+.queue-card {
   border: 1px solid var(--border);
   background: var(--card-bg);
   border-radius: 22px;
@@ -212,7 +224,10 @@
 .admin-card,
 .trade-preview,
 .subpanel,
-.price-grid div {
+.price-grid div,
+.step-card,
+.notification-card,
+.queue-card {
   padding: 16px;
 }
 
@@ -255,9 +270,20 @@
   margin-top: 16px;
 }
 
+.step-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 16px;
+}
+
+.notification-stack,
+.queue-stack {
+  margin-top: 16px;
+}
+
 .metric-pill strong,
 .summary-card strong,
-.price-grid strong {
+.price-grid strong,
+.queue-card strong {
   display: block;
   color: var(--text-h);
   font-size: 1.45rem;
@@ -274,12 +300,14 @@
 .position-row span,
 .leaderboard-row span,
 .brand-subtitle,
-.price-grid span {
+.price-grid span,
+.queue-card span {
   color: var(--muted);
 }
 
 .metric-pill small,
-.summary-card small {
+.summary-card small,
+.queue-card small {
   display: block;
   margin-top: 6px;
   color: var(--muted-strong);
@@ -388,7 +416,8 @@
 .mode-card strong,
 .admin-card strong,
 .position-row strong,
-.leaderboard-row strong {
+.leaderboard-row strong,
+.notification-card strong {
   display: block;
   margin-bottom: 8px;
 }
@@ -413,8 +442,17 @@
 .body-copy,
 .trade-preview p,
 .position-row span,
-.leaderboard-row span {
+.leaderboard-row span,
+.notification-card p,
+.step-card p {
   color: var(--muted);
+}
+
+.step-index {
+  display: inline-flex;
+  margin-bottom: 10px;
+  color: var(--muted-strong);
+  font-weight: 700;
 }
 
 .position-row,
@@ -422,6 +460,10 @@
   display: flex;
   justify-content: space-between;
   gap: 16px;
+}
+
+.compact-top {
+  margin-top: 18px;
 }
 
 .eyebrow,
@@ -451,6 +493,7 @@
   .hero-grid,
   .dashboard-grid,
   .market-set-grid,
+  .flow-grid,
   .workspace-grid,
   .portfolio-grid,
   .admin-grid,
@@ -459,6 +502,7 @@
   .metric-row,
   .price-grid,
   .admin-actions-grid,
+  .step-grid,
   .closing-banner,
   .why-now-card {
     grid-template-columns: 1fr;
