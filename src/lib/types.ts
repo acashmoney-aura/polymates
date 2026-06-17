@@ -4,6 +4,10 @@ export type LeagueMember = {
   portfolio: string
   pnl: string
   note: string
+  portfolioValue?: number
+  cashBalance?: number
+  realizedPnl?: number
+  unrealizedPnl?: number
 }
 
 export type MarketStatus = 'Open' | 'Closing Soon' | 'Resolved'
@@ -63,6 +67,9 @@ export type LeagueRuntimeContext = {
   leagueName: string
   inviteCode: string
   viewerName: string
+  startingBalance?: number
+  weeklyBonus?: number
+  memberCount?: number
 }
 
 export type ResolutionStatus = 'Ready' | 'Paused' | 'Resolved'

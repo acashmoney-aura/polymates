@@ -2,13 +2,6 @@ import './App.css'
 import { useEffect, useMemo, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import logoMark from '/polymates-mark.svg'
-import {
-  activityFeed,
-  leagueConfig,
-  leagueMembers,
-  marketSets,
-  positions,
-} from './lib/mock-data'
 import { useLeagueRuntime } from './lib/league-runtime'
 import { productSpec } from './lib/product-spec'
 import { describeRuntimeMode, hasSupabaseEnv, supabase } from './lib/supabase'
@@ -24,19 +17,6 @@ const navItems: { id: AppView; label: string; icon: string }[] = [
   { id: 'league', label: 'League', icon: 'L' },
   { id: 'connected', label: 'Connected', icon: 'C' },
   { id: 'admin', label: 'Admin', icon: 'A' },
-]
-
-const upcomingMatches = [
-  { home: 'Brazil', away: 'Morocco', group: 'Group F', time: 'Today 3:00 PM ET', yes: 62, no: 40, volume: '$12,430' },
-  { home: 'USA', away: 'Paraguay', group: 'Group B', time: 'Today 6:00 PM ET', yes: 58, no: 45, volume: '$8,210' },
-  { home: 'Spain', away: 'Japan', group: 'Group E', time: 'Tomorrow 9:00 AM ET', yes: 66, no: 38, volume: '$6,430' },
-]
-
-const friendActivity = [
-  { user: 'Akash', action: 'bought YES on USA to advance', amount: '$250.00', time: '2m ago', side: 'up' },
-  { user: 'Maya', action: 'sold Brazil champion shares', amount: '$300.00', time: '15m ago', side: 'down' },
-  { user: 'Ben', action: 'bought NO on Spain win vs Japan', amount: '$150.00', time: '27m ago', side: 'up' },
-  { user: 'Priya', action: 'bought YES on Morocco to advance', amount: '$200.00', time: '1h ago', side: 'up' },
 ]
 
 const leagueRules = [
@@ -69,6 +49,17 @@ function statusClass(status: string) {
 function memberDelta(index: number) {
   const deltas = ['+9.31%', '+8.72%', '+6.21%', '+4.17%', '+3.02%', '-1.12%']
   return deltas[index] ?? '+1.90%'
+}
+
+function splitMarketTitle(title?: string) {
+  const clean = title?.replace(/^Will\s+/i, '').replace(/\?$/, '') ?? 'Market'
+  const versus = clean.match(/(.+?)\s+(?:beat|vs|v\.|against)\s+(.+)/i)
+  if (!versus) return { home: 'YES', away: 'NO', question: title ?? 'Select a market' }
+  return {
+    home: versus[1].trim().slice(0, 16),
+    away: versus[2].trim().slice(0, 16),
+    question: title ?? clean,
+  }
 }
 
 function MiniChart() {
@@ -143,6 +134,10 @@ function App() {
     selectedMarket,
     discoveryMarkets,
     leagueVisibleMarkets,
+    members,
+    marketSets,
+    positions,
+    activity,
     syncState,
     toggleMarketSet,
     toggleMarketApproval,
@@ -152,6 +147,18 @@ function App() {
   } = useLeagueRuntime()
 
   const approvedSets = marketSets.filter((set) => selectedSetSlugs.includes(set.slug))
+  const currentMember = members.find((member) => member.name === context.viewerName) ?? members[0]
+  const portfolioValue = currentMember?.portfolioValue ?? 0
+  const buyingPower = currentMember?.cashBalance ?? 0
+  const todayPnl = currentMember ? (currentMember.realizedPnl ?? 0) + (currentMember.unrealizedPnl ?? 0) : 0
+  const leagueRank = currentMember?.rank ?? 0
+  const activityRows = activity.map((item) => ({
+    user: item.user,
+    action: item.text,
+    amount: '',
+    time: item.time,
+    side: item.text.toLowerCase().includes('sold') ? 'down' : 'up',
+  }))
   const accountSummary = useMemo(
     () =>
       accountPositions.reduce(
@@ -241,9 +248,6 @@ function App() {
     })
   }
 
-  const portfolioValue = 12430
-  const buyingPower = 2100
-
   return (
     <div className="match-app">
       <aside className="side-nav">
@@ -291,7 +295,7 @@ function App() {
                 <article>
                   <span>Portfolio value</span>
                   <strong>{money(portfolioValue)}</strong>
-                  <small>+8.72% all-time</small>
+                  <small>{currentMember?.pnl ?? '$0'} all-time</small>
                 </article>
                 <article>
                   <span>Buying power</span>
@@ -300,13 +304,13 @@ function App() {
                 </article>
                 <article>
                   <span>Today</span>
-                  <strong>+$840</strong>
-                  <small>+6.38% vs yesterday</small>
+                  <strong>{todayPnl >= 0 ? '+' : '-'}{money(Math.abs(todayPnl))}</strong>
+                  <small>From latest league snapshot</small>
                 </article>
                 <article>
                   <span>League rank</span>
-                  <strong>#2</strong>
-                  <small>Top 10% of league</small>
+                  <strong>#{leagueRank || '-'}</strong>
+                  <small>{members.length} league members</small>
                 </article>
               </div>
 
@@ -320,7 +324,7 @@ function App() {
                       <p>Trade prediction markets. Compete with friends. Climb the leaderboard. Win bragging rights.</p>
                       <div className="league-meta">
                         <span>14 members</span>
-                        <span>{money(leagueConfig.weeklyBonus)} weekly bonus</span>
+                        <span>{money(context.weeklyBonus ?? 0)} weekly bonus</span>
                         <span>{approvedSets.length} active packs</span>
                       </div>
                     </div>
@@ -333,24 +337,24 @@ function App() {
                       <button type="button" onClick={() => setView('markets')}>View all markets</button>
                     </div>
                     <div className="match-card-row">
-                      {upcomingMatches.map((match, index) => {
-                        const market = leagueVisibleMarkets[index] ?? leagueVisibleMarkets[0]
+                      {leagueVisibleMarkets.slice(0, 3).map((market, index) => {
+                        const matchup = splitMarketTitle(market.title)
                         return (
-                          <button key={`${match.home}-${match.away}`} type="button" className="match-card" onClick={() => market && openMarket(market)}>
-                            <span>{match.time}</span>
+                          <button key={market.id} type="button" className="match-card" onClick={() => openMarket(market)}>
+                            <span>{market.closes}</span>
                             <div className="teams">
-                              <strong>{match.home}</strong>
+                              <strong>{matchup.home}</strong>
                               <small>vs</small>
-                              <strong>{match.away}</strong>
+                              <strong>{matchup.away}</strong>
                             </div>
-                            <p>{market?.title ?? `Will ${match.home} win?`}</p>
+                            <p>{market.title}</p>
                             <div className="odds-row">
-                              <span>YES {priceLabel(market?.yesPrice ?? match.yes)}</span>
-                              <span className="no">NO {priceLabel(market?.noPrice ?? match.no)}</span>
+                              <span>YES {priceLabel(market.yesPrice)}</span>
+                              <span className="no">NO {priceLabel(market.noPrice)}</span>
                             </div>
                             <footer>
-                              <span>{match.volume} vol.</span>
-                              <span>{98 + index * 57} trades</span>
+                              <span>{market.volume}</span>
+                              <span>{tradeIntents.filter((intent) => intent.marketId === market.id).length + index} trades</span>
                             </footer>
                           </button>
                         )
@@ -382,7 +386,7 @@ function App() {
                 <section className="panel-block">
                   <div className="section-head">
                     <h3>Fantasy portfolio</h3>
-                    <span>{productSpec.coreEntities.length} schema entities ready</span>
+                  <span>{productSpec.coreEntities.length} schema entities ready</span>
                   </div>
                   <div className="table-stack">
                     {positions.map((position) => (
@@ -528,10 +532,7 @@ function App() {
                   <button type="button" onClick={() => setView('league')}>Full board</button>
                 </div>
                 <div className="leaderboard-list">
-                  {leagueMembers.concat([
-                    { name: 'Noah', rank: 5, portfolio: '$8,430', pnl: '-$120', note: 'Needs one hit' },
-                    { name: 'Liam', rank: 6, portfolio: '$6,210', pnl: '-$480', note: 'Cold streak' },
-                  ]).map((member, index) => (
+                  {members.map((member, index) => (
                     <article key={member.name} className={member.name === 'Akash' ? 'you' : ''}>
                       <span>{index + 1}</span>
                       <div>
@@ -553,13 +554,13 @@ function App() {
                   <button type="button">View all</button>
                 </div>
                 <div className="activity-list">
-                  {friendActivity.map((item) => (
+                  {activityRows.map((item) => (
                     <article key={`${item.user}-${item.time}`}>
                       <span className={item.side}>{item.side === 'up' ? 'UP' : 'DN'}</span>
                       <div>
                         <strong>{item.user}</strong>
                         <p>{item.action}</p>
-                        <small>{item.amount}</small>
+                      <small>{item.amount}</small>
                       </div>
                       <time>{item.time}</time>
                     </article>
@@ -663,7 +664,7 @@ function App() {
                     <button type="button">All trades</button>
                   </div>
                   <div className="mini-table">
-                    {tradeIntents.map((intent) => (
+                  {tradeIntents.map((intent) => (
                       <article key={intent.id}>
                         <span>{intent.side}</span>
                         <span>{priceLabel(intent.estimatedPrice)}</span>
@@ -679,7 +680,7 @@ function App() {
                 </section>
                 <section className="panel-block">
                   <h3>Comments</h3>
-                  {activityFeed.slice(0, 3).map((item) => <p key={item.time}><strong>{item.user}</strong> {item.text}</p>)}
+                  {activity.slice(0, 3).map((item) => <p key={item.time}><strong>{item.user}</strong> {item.text}</p>)}
                 </section>
               </div>
             </section>
@@ -721,7 +722,7 @@ function App() {
                   <button type="button">All</button>
                 </div>
                 <div className="activity-list">
-                  {friendActivity.map((item) => (
+                  {activityRows.map((item) => (
                     <article key={`market-${item.user}-${item.time}`}>
                       <span className={item.side}>{item.side === 'up' ? 'UP' : 'DN'}</span>
                       <div>

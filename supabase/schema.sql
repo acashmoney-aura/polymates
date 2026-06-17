@@ -224,6 +224,15 @@ create table if not exists activity_feed (
   created_at timestamptz not null default now()
 );
 
-alter table markets
-  add constraint markets_resolved_outcome_fk
-  foreign key (resolved_outcome_id) references outcomes(id) on delete set null;
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'markets_resolved_outcome_fk'
+  ) then
+    alter table markets
+      add constraint markets_resolved_outcome_fk
+      foreign key (resolved_outcome_id) references outcomes(id) on delete set null;
+  end if;
+end $$;
