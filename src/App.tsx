@@ -152,12 +152,14 @@ function App() {
   const buyingPower = currentMember?.cashBalance ?? 0
   const todayPnl = currentMember ? (currentMember.realizedPnl ?? 0) + (currentMember.unrealizedPnl ?? 0) : 0
   const leagueRank = currentMember?.rank ?? 0
-  const activityRows = activity.map((item) => ({
+  const selectedMatchup = splitMarketTitle(selectedMarket?.title)
+  const activityRows = activity.map((item, index) => ({
     user: item.user,
     action: item.text,
     amount: '',
     time: item.time,
     side: item.text.toLowerCase().includes('sold') ? 'down' : 'up',
+    key: `${item.user}-${item.time}-${index}`,
   }))
   const accountSummary = useMemo(
     () =>
@@ -555,7 +557,7 @@ function App() {
                 </div>
                 <div className="activity-list">
                   {activityRows.map((item) => (
-                    <article key={`${item.user}-${item.time}`}>
+                    <article key={item.key}>
                       <span className={item.side}>{item.side === 'up' ? 'UP' : 'DN'}</span>
                       <div>
                         <strong>{item.user}</strong>
@@ -608,9 +610,9 @@ function App() {
               <button type="button" className="back-link" onClick={() => setView('dashboard')}>Back to dashboard</button>
               <section className="market-title-card">
                 <div className="matchup-badges">
-                  <span>USA</span>
+                  <span>{selectedMatchup.home}</span>
                   <small>vs</small>
-                  <span>PAR</span>
+                  <span>{selectedMatchup.away}</span>
                 </div>
                 <div>
                   <span className="privacy-pill">{selectedMarket?.stage ?? 'Market'}</span>
@@ -680,7 +682,7 @@ function App() {
                 </section>
                 <section className="panel-block">
                   <h3>Comments</h3>
-                  {activity.slice(0, 3).map((item) => <p key={item.time}><strong>{item.user}</strong> {item.text}</p>)}
+                  {activity.slice(0, 3).map((item, index) => <p key={`${item.user}-${item.time}-${index}`}><strong>{item.user}</strong> {item.text}</p>)}
                 </section>
               </div>
             </section>
@@ -723,7 +725,7 @@ function App() {
                 </div>
                 <div className="activity-list">
                   {activityRows.map((item) => (
-                    <article key={`market-${item.user}-${item.time}`}>
+                    <article key={`market-${item.key}`}>
                       <span className={item.side}>{item.side === 'up' ? 'UP' : 'DN'}</span>
                       <div>
                         <strong>{item.user}</strong>
