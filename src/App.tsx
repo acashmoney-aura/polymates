@@ -337,10 +337,11 @@ function App() {
             </button>
           ))}
         </nav>
-        <div className="season-card">
-          <div className="trophy-orb">Cup</div>
-          <strong>World Cup Pack</strong>
-          <span>Nov 20 - Dec 18</span>
+        <div className="sync-card">
+          <span className="sync-dot"></span>
+          <strong>Live market sync</strong>
+          <span>{leagueVisibleMarkets.length} approved Polymarket markets</span>
+          <span>{leagueVisibleMarkets.filter((market) => market.clobTokenIds?.[0]).length} with price history</span>
         </div>
       </aside>
 
@@ -386,13 +387,13 @@ function App() {
               {view === 'dashboard' && (
                 <>
                   <section className="league-hero">
-                    <div className="cup-badge">Cup</div>
+                    <div className="cup-badge">Live</div>
                     <div>
                       <span className="privacy-pill">Private league</span>
                       <h2>Dorm World Cup League</h2>
                       <p>Trade prediction markets. Compete with friends. Climb the leaderboard. Win bragging rights.</p>
                       <div className="league-meta">
-                        <span>14 members</span>
+                        <span>{members.length} members</span>
                         <span>{money(context.weeklyBonus ?? 0)} weekly bonus</span>
                         <span>{approvedSets.length} active packs</span>
                       </div>

@@ -82,7 +82,7 @@
 .avatar,
 .activity-list > article > span,
 .cup-badge,
-.trophy-orb {
+.sync-dot {
   display: inline-grid;
   place-items: center;
 }
@@ -100,7 +100,7 @@
   background: linear-gradient(135deg, rgba(34, 197, 94, 0.32), rgba(34, 197, 94, 0.12));
 }
 
-.season-card,
+.sync-card,
 .panel-block,
 .rail-card,
 .metric-strip article,
@@ -113,17 +113,17 @@
   box-shadow: var(--shadow-soft);
 }
 
-.season-card {
+.sync-card {
   margin-top: auto;
   min-height: 220px;
-  display: grid;
-  place-items: center;
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 10px;
   border-radius: 18px;
   padding: 22px;
 }
 
-.trophy-orb,
 .cup-badge {
   border-radius: 999px;
   color: #ffd65a;
@@ -133,10 +133,18 @@
     rgba(6, 65, 39, 0.42);
 }
 
-.trophy-orb {
-  width: 88px;
-  height: 88px;
-  margin-bottom: 8px;
+.sync-dot {
+  width: 46px;
+  height: 46px;
+  border-radius: 999px;
+  border: 1px solid rgba(34, 197, 94, 0.45);
+  background:
+    radial-gradient(circle, #2ef27c 0 18%, transparent 20%),
+    rgba(34, 197, 94, 0.12);
+}
+
+.sync-card span:not(.sync-dot) {
+  color: var(--muted);
 }
 
 .match-main {
@@ -248,7 +256,7 @@
 .panel-block p,
 .position-grid,
 .mini-table,
-.season-card span {
+.sync-card span {
   color: var(--muted);
 }
 
