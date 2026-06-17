@@ -5,8 +5,8 @@ import logoMark from '/polymates-mark.svg'
 import { useLeagueRuntime } from './lib/league-runtime'
 import { productSpec } from './lib/product-spec'
 import { describeRuntimeMode, hasSupabaseEnv, supabase } from './lib/supabase'
-import { fetchPolymarketAccountPositions } from './lib/polymarket'
-import type { Market, PolymarketAccountPosition, ResolutionItem } from './lib/types'
+import { fetchPolymarketAccountPositions, fetchPolymarketPriceHistory } from './lib/polymarket'
+import type { Market, MarketPricePoint, PolymarketAccountPosition, ResolutionItem } from './lib/types'
 
 type AppView = 'dashboard' | 'markets' | 'portfolio' | 'league' | 'admin' | 'connected'
 
@@ -82,7 +82,27 @@ function MiniChart() {
   )
 }
 
-function MarketPriceChart({ market }: { market?: Market }) {
+function buildHistoryPath(points: MarketPricePoint[], width = 900, height = 260) {
+  if (points.length < 2) return null
+  const prices = points.map((point) => point.p)
+  const min = Math.max(0, Math.min(...prices) - 0.05)
+  const max = Math.min(1, Math.max(...prices) + 0.05)
+  const spread = max - min || 1
+  const line = points.map((point, index) => {
+    const x = (index / (points.length - 1)) * width
+    const y = height - ((point.p - min) / spread) * (height - 34) - 18
+    return `${x.toFixed(1)},${y.toFixed(1)}`
+  })
+  return {
+    line: line.join(' '),
+    area: `M ${line.join(' ')} L ${width} ${height} L 0 ${height} Z`,
+    latest: points[points.length - 1]?.p,
+  }
+}
+
+function MarketPriceChart({ market, history }: { market?: Market; history: MarketPricePoint[] }) {
+  const realPath = buildHistoryPath(history)
+
   return (
     <svg className="market-chart" viewBox="0 0 900 260" role="img" aria-label="YES and NO market price chart">
       <defs>
@@ -100,12 +120,22 @@ function MarketPriceChart({ market }: { market?: Market }) {
         <line x1="0" x2="900" y1="120" y2="120" />
         <line x1="0" x2="900" y1="190" y2="190" />
       </g>
-      <path d="M0 160 C90 142 120 108 210 126 C320 150 360 88 465 106 C560 124 600 74 710 62 C800 50 830 88 900 72 L900 260 L0 260 Z" fill="url(#yesFill)" />
-      <path d="M0 172 C80 192 140 154 240 166 C330 178 390 134 500 144 C590 154 650 190 760 172 C825 160 860 156 900 146 L900 260 L0 260 Z" fill="url(#noFill)" />
-      <path d="M0 160 C90 142 120 108 210 126 C320 150 360 88 465 106 C560 124 600 74 710 62 C800 50 830 88 900 72" fill="none" stroke="#22c55e" strokeWidth="4" />
-      <path d="M0 172 C80 192 140 154 240 166 C330 178 390 134 500 144 C590 154 650 190 760 172 C825 160 860 156 900 146" fill="none" stroke="#ef4444" strokeWidth="4" />
-      <text x="844" y="64" className="chart-badge yes">{priceLabel(market?.yesPrice)}</text>
-      <text x="844" y="138" className="chart-badge no">{priceLabel(market?.noPrice)}</text>
+      {realPath ? (
+        <>
+          <path d={realPath.area} fill="url(#yesFill)" />
+          <polyline points={realPath.line} fill="none" stroke="#22c55e" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+          <text x="814" y="64" className="chart-badge yes">{realPath.latest?.toFixed(2)}</text>
+        </>
+      ) : (
+        <>
+          <path d="M0 160 C90 142 120 108 210 126 C320 150 360 88 465 106 C560 124 600 74 710 62 C800 50 830 88 900 72 L900 260 L0 260 Z" fill="url(#yesFill)" />
+          <path d="M0 172 C80 192 140 154 240 166 C330 178 390 134 500 144 C590 154 650 190 760 172 C825 160 860 156 900 146 L900 260 L0 260 Z" fill="url(#noFill)" />
+          <path d="M0 160 C90 142 120 108 210 126 C320 150 360 88 465 106 C560 124 600 74 710 62 C800 50 830 88 900 72" fill="none" stroke="#22c55e" strokeWidth="4" />
+          <path d="M0 172 C80 192 140 154 240 166 C330 178 390 134 500 144 C590 154 650 190 760 172 C825 160 860 156 900 146" fill="none" stroke="#ef4444" strokeWidth="4" />
+          <text x="844" y="64" className="chart-badge yes">{priceLabel(market?.yesPrice)}</text>
+          <text x="844" y="138" className="chart-badge no">{priceLabel(market?.noPrice)}</text>
+        </>
+      )}
     </svg>
   )
 }
@@ -122,6 +152,10 @@ function App() {
   const [authStatus, setAuthStatus] = useState('Email/password only. No Google or social login.')
   const [authLoading, setAuthLoading] = useState(false)
   const [session, setSession] = useState<Session | null>(null)
+  const [marketSearch, setMarketSearch] = useState('')
+  const [historyInterval, setHistoryInterval] = useState<'1h' | '6h' | '1d' | '1w' | '1m' | 'all'>('6h')
+  const [priceHistory, setPriceHistory] = useState<MarketPricePoint[]>([])
+  const [historyStatus, setHistoryStatus] = useState('Select a market to load CLOB history.')
 
   const {
     context,
@@ -161,6 +195,39 @@ function App() {
     side: item.text.toLowerCase().includes('sold') ? 'down' : 'up',
     key: `${item.user}-${item.time}-${index}`,
   }))
+  const visibleMarkets = leagueVisibleMarkets.filter((market) => {
+    const query = marketSearch.trim().toLowerCase()
+    if (!query) return true
+    return `${market.title} ${market.stage} ${market.category ?? ''}`.toLowerCase().includes(query)
+  })
+  const totalLiveVolume = leagueVisibleMarkets.reduce((sum, market) => {
+    const match = market.volume.match(/\$([0-9.]+)([Mk]?)/i)
+    if (!match) return sum
+    const value = Number(match[1])
+    const multiplier = match[2]?.toLowerCase() === 'm' ? 1_000_000 : match[2]?.toLowerCase() === 'k' ? 1_000 : 1
+    return sum + (Number.isFinite(value) ? value * multiplier : 0)
+  }, 0)
+
+  useEffect(() => {
+    if (!selectedMarket) return
+
+    let active = true
+
+    fetchPolymarketPriceHistory(selectedMarket, historyInterval)
+      .then((history) => {
+        if (!active) return
+        setPriceHistory(history)
+        setHistoryStatus(history.length ? `Loaded ${history.length} real Polymarket price points.` : 'Polymarket returned no history for this interval.')
+      })
+      .catch((error) => {
+        if (!active) return
+        setHistoryStatus(error instanceof Error ? error.message : 'Could not load Polymarket price history.')
+      })
+
+    return () => {
+      active = false
+    }
+  }, [historyInterval, selectedMarket])
   const accountSummary = useMemo(
     () =>
       accountPositions.reduce(
@@ -608,6 +675,51 @@ function App() {
           <div className="market-layout">
             <section className="market-workspace">
               <button type="button" className="back-link" onClick={() => setView('dashboard')}>Back to dashboard</button>
+              <section className="panel-block market-browser">
+                <div className="section-head">
+                  <div>
+                    <h3>Live Polymarket markets</h3>
+                    <p>Approved league markets synced from Gamma, with CLOB token history for charts.</p>
+                  </div>
+                  <input
+                    value={marketSearch}
+                    onChange={(event) => setMarketSearch(event.target.value)}
+                    placeholder="Search markets"
+                    aria-label="Search Polymarket markets"
+                  />
+                </div>
+                <div className="market-data-strip">
+                  <article>
+                    <span>Approved markets</span>
+                    <strong>{leagueVisibleMarkets.length}</strong>
+                  </article>
+                  <article>
+                    <span>Estimated live volume</span>
+                    <strong>{totalLiveVolume >= 1_000_000 ? `$${(totalLiveVolume / 1_000_000).toFixed(1)}M` : `$${(totalLiveVolume / 1_000).toFixed(1)}k`}</strong>
+                  </article>
+                  <article>
+                    <span>With CLOB history</span>
+                    <strong>{leagueVisibleMarkets.filter((market) => market.clobTokenIds?.[0]).length}</strong>
+                  </article>
+                </div>
+                <div className="market-explorer-list">
+                  {visibleMarkets.map((market) => {
+                    const active = market.id === selectedMarket?.id
+                    return (
+                      <button key={market.id} type="button" className={active ? 'market-explorer-row active' : 'market-explorer-row'} onClick={() => setSelectedMarketId(market.id)}>
+                        <div>
+                          <strong>{market.title}</strong>
+                          <span>{market.stage} · {market.volume}</span>
+                        </div>
+                        <div className="market-row-prices">
+                          <span>YES {priceLabel(market.yesPrice)}</span>
+                          <span>NO {priceLabel(market.noPrice)}</span>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </section>
               <section className="market-title-card">
                 <div className="matchup-badges">
                   <span>{selectedMatchup.home}</span>
@@ -629,14 +741,20 @@ function App() {
                     <span className="no-dot">NO {priceLabel(selectedMarket?.noPrice)}</span>
                   </div>
                   <div className="segmented">
-                    <span>1H</span>
-                    <span className="active">6H</span>
-                    <span>1D</span>
-                    <span>1W</span>
-                    <span>ALL</span>
+                    {(['1h', '6h', '1d', '1w', '1m', 'all'] as const).map((interval) => (
+                      <button
+                        key={interval}
+                        type="button"
+                        className={historyInterval === interval ? 'active' : ''}
+                        onClick={() => setHistoryInterval(interval)}
+                      >
+                        {interval.toUpperCase()}
+                      </button>
+                    ))}
                   </div>
                 </div>
-                <MarketPriceChart market={selectedMarket} />
+                <MarketPriceChart market={selectedMarket} history={priceHistory} />
+                <p className="history-status">{historyStatus}</p>
               </section>
 
               <div className="detail-subgrid">

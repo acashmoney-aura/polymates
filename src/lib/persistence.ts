@@ -37,7 +37,16 @@ type ApprovalRow = {
     yes_price?: number | string | null
     no_price?: number | string | null
     volume_label?: string | null
-    raw_payload?: { rules?: string; status?: string } | null
+    raw_payload?: {
+      rules?: string
+      status?: string
+      gamma?: {
+        clobTokenIds?: string | string[]
+        conditionId?: string
+        slug?: string
+        category?: string
+      }
+    } | null
   } | null
 }
 
@@ -74,6 +83,15 @@ type ActivityRow = {
   created_at: string
   metadata: { text?: string; amount?: string; side?: string } | null
   users: { username?: string | null } | null
+}
+
+function parseJsonStringArray(value: string): string[] {
+  try {
+    const parsed = JSON.parse(value)
+    return Array.isArray(parsed) ? parsed.map(String) : []
+  } catch {
+    return []
+  }
 }
 
 async function getLeagueContext(): Promise<LeagueRuntimeContext | null> {
@@ -185,17 +203,30 @@ export async function loadPersistedRuntimeSnapshot(): Promise<PersistedRuntimeSn
 
   const approvedMarkets: Market[] = approvalRows
     .filter((row) => row.status === 'approved' && row.external_markets)
-    .map((row) => ({
-      id: row.external_markets?.external_id ?? '',
-      title: row.external_markets?.title ?? 'Untitled market',
-      stage: row.external_markets?.stage_label ?? 'Live Polymarket Market',
-      closes: row.external_markets?.closes_label ?? 'Close time unavailable',
-      yesPrice: Number(row.external_markets?.yes_price ?? 50),
-      noPrice: Number(row.external_markets?.no_price ?? 50),
-      volume: row.external_markets?.volume_label ?? 'Volume unavailable',
-      rules: row.external_markets?.raw_payload?.rules ?? 'Live Polymarket market mirrored into a fantasy league.',
-      status: row.external_markets?.raw_payload?.status === 'Resolved' ? 'Resolved' : 'Open',
-    }))
+    .map((row) => {
+      const gamma = row.external_markets?.raw_payload?.gamma
+      const tokenIds = Array.isArray(gamma?.clobTokenIds)
+        ? gamma.clobTokenIds.map(String)
+        : typeof gamma?.clobTokenIds === 'string'
+          ? parseJsonStringArray(gamma.clobTokenIds)
+          : []
+
+      return {
+        id: row.external_markets?.external_id ?? '',
+        title: row.external_markets?.title ?? 'Untitled market',
+        stage: row.external_markets?.stage_label ?? 'Live Polymarket Market',
+        closes: row.external_markets?.closes_label ?? 'Close time unavailable',
+        yesPrice: Number(row.external_markets?.yes_price ?? 50),
+        noPrice: Number(row.external_markets?.no_price ?? 50),
+        volume: row.external_markets?.volume_label ?? 'Volume unavailable',
+        rules: row.external_markets?.raw_payload?.rules ?? 'Live Polymarket market mirrored into a fantasy league.',
+        status: row.external_markets?.raw_payload?.status === 'Resolved' ? 'Resolved' : 'Open',
+        clobTokenIds: tokenIds,
+        conditionId: gamma?.conditionId,
+        slug: gamma?.slug,
+        category: gamma?.category,
+      }
+    })
 
   const tradeIntents: TradeIntent[] = ((intentsData ?? []) as TradeIntentRow[]).map((row) => ({
     id: row.id,

@@ -172,7 +172,8 @@
 .feed-status,
 .privacy-pill,
 .status,
-.segmented span {
+.segmented span,
+.segmented button {
   border-radius: 999px;
   padding: 8px 12px;
   background: rgba(34, 197, 94, 0.1);
@@ -464,9 +465,99 @@
   gap: 6px;
 }
 
-.segmented span.active {
+.segmented button {
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.segmented span.active,
+.segmented button.active {
   color: #eafff3;
   background: rgba(34, 197, 94, 0.28);
+}
+
+.market-browser .section-head {
+  align-items: flex-start;
+}
+
+.market-browser input {
+  min-width: min(320px, 100%);
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text-h);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0 14px;
+}
+
+.market-data-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.market-data-strip article {
+  border-radius: 10px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.market-data-strip span,
+.market-explorer-row span,
+.history-status {
+  color: var(--muted);
+}
+
+.market-data-strip strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 1.35rem;
+}
+
+.market-explorer-list {
+  max-height: 340px;
+  display: grid;
+  gap: 8px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.market-explorer-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.025);
+  padding: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.market-explorer-row.active,
+.market-explorer-row:hover {
+  border-color: rgba(34, 197, 94, 0.55);
+  background: rgba(34, 197, 94, 0.1);
+}
+
+.market-row-prices {
+  display: flex;
+  gap: 8px;
+}
+
+.market-row-prices span {
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.history-status {
+  margin: 10px 0 0;
+  font-size: 0.9rem;
 }
 
 .leaderboard-list,

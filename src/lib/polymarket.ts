@@ -1,4 +1,4 @@
-import type { Market, PolymarketAccountPosition } from './types'
+import type { Market, MarketPricePoint, PolymarketAccountPosition } from './types'
 
 type GammaMarket = {
   id?: string | number
@@ -10,11 +10,16 @@ type GammaMarket = {
   closed?: boolean
   outcomes?: string | string[]
   outcomePrices?: string | string[]
+  clobTokenIds?: string | string[]
+  conditionId?: string
+  slug?: string
+  category?: string
 }
 
 const POLYMARKET_GAMMA_URL =
   'https://gamma-api.polymarket.com/markets?limit=12&closed=false&active=true'
 const POLYMARKET_POSITIONS_URL = 'https://data-api.polymarket.com/positions'
+const POLYMARKET_CLOB_URL = 'https://clob.polymarket.com'
 
 function parseStringArray(value: unknown): string[] {
   if (Array.isArray(value)) return value.map(String)
@@ -52,6 +57,7 @@ function marketStatus(item: GammaMarket): Market['status'] {
 function toAppMarket(item: GammaMarket): Market | null {
   const outcomes = parseStringArray(item.outcomes)
   const prices = parseStringArray(item.outcomePrices).map(Number)
+  const clobTokenIds = parseStringArray(item.clobTokenIds)
   const yesIndex = outcomes.findIndex((label) => label.toLowerCase() === 'yes')
   const noIndex = outcomes.findIndex((label) => label.toLowerCase() === 'no')
   if (yesIndex === -1 || noIndex === -1) return null
@@ -71,6 +77,10 @@ function toAppMarket(item: GammaMarket): Market | null {
     volume: formatVolume(item.volume),
     rules: 'Live read from Polymarket Gamma API. Fantasy leagues can mirror or whitelist these markets.',
     status: marketStatus(item),
+    clobTokenIds,
+    conditionId: item.conditionId,
+    slug: item.slug,
+    category: item.category,
   }
 }
 
@@ -87,6 +97,32 @@ export async function fetchPolymarketMarkets(): Promise<Market[]> {
 
   const data = (await response.json()) as GammaMarket[]
   return data.map(toAppMarket).filter((market): market is Market => Boolean(market))
+}
+
+export async function fetchPolymarketPriceHistory(
+  market: Market,
+  interval: '1h' | '6h' | '1d' | '1w' | '1m' | 'all' = '6h',
+): Promise<MarketPricePoint[]> {
+  const tokenId = market.clobTokenIds?.[0]
+  if (!tokenId) return []
+
+  const url = new URL('/prices-history', POLYMARKET_CLOB_URL)
+  url.searchParams.set('market', tokenId)
+  url.searchParams.set('interval', interval)
+  url.searchParams.set('fidelity', interval === '1h' || interval === '6h' ? '5' : '60')
+
+  const response = await fetch(url, {
+    headers: {
+      Accept: 'application/json',
+    },
+  })
+
+  if (!response.ok) {
+    throw new Error(`Polymarket price history fetch failed: ${response.status}`)
+  }
+
+  const data = (await response.json()) as { history?: MarketPricePoint[] }
+  return (data.history ?? []).filter((point) => Number.isFinite(point.t) && Number.isFinite(point.p))
 }
 
 type PolymarketPositionResponse = {

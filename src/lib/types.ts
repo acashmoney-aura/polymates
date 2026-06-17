@@ -30,6 +30,15 @@ export type Market = {
   volume: string
   rules: string
   status: MarketStatus
+  clobTokenIds?: string[]
+  conditionId?: string
+  slug?: string
+  category?: string
+}
+
+export type MarketPricePoint = {
+  t: number
+  p: number
 }
 
 export type Position = {
