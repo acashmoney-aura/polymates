@@ -218,7 +218,7 @@
 
 .metric-strip {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
 }
 
@@ -271,7 +271,7 @@
   overflow: hidden;
   min-height: 238px;
   display: grid;
-  grid-template-columns: 190px minmax(0, 1fr) auto;
+  grid-template-columns: 170px minmax(0, 1fr);
   align-items: center;
   gap: 26px;
   border-radius: 16px;
@@ -302,7 +302,11 @@
 
 .league-hero h2 {
   margin: 12px 0 8px;
-  font-size: clamp(2rem, 3.6vw, 3.1rem);
+  font-size: clamp(2rem, 3.2vw, 2.8rem);
+}
+
+.league-hero .primary-action {
+  justify-self: start;
 }
 
 .league-meta {
@@ -483,9 +487,17 @@
 
 .leaderboard-list article {
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) auto;
+  grid-template-columns: 28px minmax(0, 1fr) minmax(96px, auto);
   align-items: center;
   gap: 12px;
+}
+
+.leaderboard-list small {
+  display: block;
+}
+
+.leaderboard-list article > div:last-child {
+  text-align: right;
 }
 
 .leaderboard-list article.you {
