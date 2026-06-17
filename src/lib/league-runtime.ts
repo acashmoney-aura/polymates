@@ -127,7 +127,7 @@ export function useLeagueRuntime() {
 
   const leagueVisibleMarkets = useMemo(() => {
     const approved = discoveryMarkets.filter((market) => whitelistedMarketIds.includes(market.id))
-    return approved.length > 0 ? approved : discoveryMarkets
+    return approved.length > 0 ? approved : fallbackMarkets
   }, [discoveryMarkets, whitelistedMarketIds])
 
   const selectedMarket = useMemo(
