@@ -148,6 +148,34 @@ Recommended stack:
 - Supabase Edge Functions
 - Vercel
 
+## Current public app setup
+
+The app is now configured for:
+
+- Public GitHub repository
+- GitHub Pages deployment through GitHub Actions
+- Supabase-backed runtime using the production publishable key
+- Email/password Supabase Auth only
+- Fantasy league gameplay plus read-only Polymarket account tracking
+
+Production frontend config lives in `.env.production` and includes only public-safe values:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY` / Supabase publishable key
+
+Do not commit service-role keys, database passwords, or Supabase personal access tokens.
+
+Backend setup can be repeated without the Supabase CLI:
+
+```bash
+DATABASE_URL="postgresql://postgres:<password>@db.<project-ref>.supabase.co:5432/postgres" npm run supabase:apply
+```
+
+This applies:
+
+- `supabase/schema.sql`
+- `supabase/seed.sql`
+
 Optional later:
 - Redis / Upstash
 - Pusher / Ably / Supabase Realtime

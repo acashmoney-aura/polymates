@@ -1,5 +1,6 @@
 import './App.css'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import type { Session } from '@supabase/supabase-js'
 import logoMark from '/polymates-mark.svg'
 import {
   activityFeed,
@@ -10,7 +11,7 @@ import {
 } from './lib/mock-data'
 import { useLeagueRuntime } from './lib/league-runtime'
 import { productSpec } from './lib/product-spec'
-import { describeRuntimeMode, hasSupabaseEnv } from './lib/supabase'
+import { describeRuntimeMode, hasSupabaseEnv, supabase } from './lib/supabase'
 import { fetchPolymarketAccountPositions } from './lib/polymarket'
 import type { Market, PolymarketAccountPosition, ResolutionItem } from './lib/types'
 
@@ -124,6 +125,12 @@ function App() {
   const [accountPositions, setAccountPositions] = useState<PolymarketAccountPosition[]>([])
   const [accountStatus, setAccountStatus] = useState('Paste a public wallet or Polymarket proxy-wallet address to compare real account PnL.')
   const [accountLoading, setAccountLoading] = useState(false)
+  const [authMode, setAuthMode] = useState<'sign-in' | 'sign-up'>('sign-in')
+  const [authEmail, setAuthEmail] = useState('')
+  const [authPassword, setAuthPassword] = useState('')
+  const [authStatus, setAuthStatus] = useState('Email/password only. No Google or social login.')
+  const [authLoading, setAuthLoading] = useState(false)
+  const [session, setSession] = useState<Session | null>(null)
 
   const {
     context,
@@ -156,6 +163,54 @@ function App() {
       ),
     [accountPositions],
   )
+
+  useEffect(() => {
+    if (!supabase) return
+
+    let active = true
+    supabase.auth.getSession().then(({ data }) => {
+      if (active) setSession(data.session)
+    })
+
+    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession)
+    })
+
+    return () => {
+      active = false
+      data.subscription.unsubscribe()
+    }
+  }, [])
+
+  async function submitAuth() {
+    if (!supabase) {
+      setAuthStatus('Supabase config is missing, so auth is disabled in local fallback mode.')
+      return
+    }
+
+    setAuthLoading(true)
+    setAuthStatus(authMode === 'sign-in' ? 'Signing in...' : 'Creating account...')
+    try {
+      const result =
+        authMode === 'sign-in'
+          ? await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword })
+          : await supabase.auth.signUp({ email: authEmail, password: authPassword })
+
+      if (result.error) throw result.error
+      setAuthStatus(authMode === 'sign-in' ? 'Signed in.' : 'Account created. Check email confirmation settings if sign-in is pending.')
+      setAuthPassword('')
+    } catch (error) {
+      setAuthStatus(error instanceof Error ? error.message : 'Authentication failed.')
+    } finally {
+      setAuthLoading(false)
+    }
+  }
+
+  async function signOut() {
+    if (!supabase) return
+    await supabase.auth.signOut()
+    setAuthStatus('Signed out.')
+  }
 
   async function loadAccountPositions() {
     setAccountLoading(true)
@@ -517,6 +572,32 @@ function App() {
                 <p>{hasSupabaseEnv ? 'Supabase credentials detected.' : 'Supabase credentials are not set locally.'}</p>
                 <p>{describeRuntimeMode()}</p>
                 <p>{syncState.message}</p>
+              </section>
+
+              <section className="rail-card auth-card">
+                <div className="section-head">
+                  <h3>Account</h3>
+                  <span>{session ? 'Signed in' : 'Email auth'}</span>
+                </div>
+                {session ? (
+                  <div className="auth-session">
+                    <strong>{session.user.email}</strong>
+                    <button type="button" onClick={() => void signOut()}>Sign out</button>
+                  </div>
+                ) : (
+                  <div className="auth-form">
+                    <div className="trade-tabs">
+                      <button type="button" className={authMode === 'sign-in' ? 'active' : ''} onClick={() => setAuthMode('sign-in')}>Sign in</button>
+                      <button type="button" className={authMode === 'sign-up' ? 'active' : ''} onClick={() => setAuthMode('sign-up')}>Sign up</button>
+                    </div>
+                    <input value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} placeholder="Email" type="email" />
+                    <input value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} placeholder="Password" type="password" />
+                    <button type="button" className="primary-action full" onClick={() => void submitAuth()} disabled={authLoading}>
+                      {authLoading ? 'Working...' : authMode === 'sign-in' ? 'Sign in' : 'Create account'}
+                    </button>
+                    <p>{authStatus}</p>
+                  </div>
+                )}
               </section>
             </aside>
           </div>
