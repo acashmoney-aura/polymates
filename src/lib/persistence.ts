@@ -16,6 +16,25 @@ type PersistedRuntimeSnapshot = {
   tradeIntents: TradeIntent[]
 }
 
+type ApprovalRow = {
+  status: string
+  approval_source: string
+  created_at: string
+  external_markets: { external_id?: string } | null
+}
+
+type TradeIntentRow = {
+  id: string
+  side: string | null
+  shares: number | string
+  estimated_price: number | string
+  estimated_cost: number | string
+  status: string | null
+  created_at: string
+  market_title: string
+  external_markets: { external_id?: string } | null
+}
+
 async function getLeagueContext(): Promise<LeagueRuntimeContext | null> {
   if (!supabase) return null
 
@@ -87,14 +106,14 @@ export async function loadPersistedRuntimeSnapshot(): Promise<PersistedRuntimeSn
   if (approvalsError) throw approvalsError
   if (intentsError) throw intentsError
 
-  const approvals: LeagueMarketApproval[] = (approvalsData ?? []).map((row: any) => ({
+  const approvals: LeagueMarketApproval[] = ((approvalsData ?? []) as ApprovalRow[]).map((row) => ({
     marketId: row.external_markets?.external_id ?? '',
     source: row.approval_source === 'seed' ? 'seed' : 'polymarket',
     approved: row.status === 'approved',
     approvedAt: new Date(row.created_at).toLocaleString(),
   }))
 
-  const tradeIntents: TradeIntent[] = (intentsData ?? []).map((row: any) => ({
+  const tradeIntents: TradeIntent[] = ((intentsData ?? []) as TradeIntentRow[]).map((row) => ({
     id: row.id,
     marketId: row.external_markets?.external_id ?? undefined,
     marketTitle: row.market_title,

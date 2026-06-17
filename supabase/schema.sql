@@ -176,6 +176,29 @@ create table if not exists league_snapshots (
   snapshot_time timestamptz not null default now()
 );
 
+create table if not exists polymarket_account_links (
+  id uuid primary key default gen_random_uuid(),
+  league_id uuid not null references leagues(id) on delete cascade,
+  user_id uuid references users(id) on delete cascade,
+  display_name text not null,
+  wallet_address text not null,
+  active boolean not null default true,
+  linked_at timestamptz not null default now(),
+  last_synced_at timestamptz,
+  unique (league_id, wallet_address),
+  check (wallet_address ~* '^0x[a-f0-9]{40}$')
+);
+
+create table if not exists polymarket_account_snapshots (
+  id uuid primary key default gen_random_uuid(),
+  account_link_id uuid not null references polymarket_account_links(id) on delete cascade,
+  open_position_value numeric not null default 0,
+  cash_pnl numeric not null default 0,
+  position_count integer not null default 0,
+  raw_positions jsonb not null default '[]'::jsonb,
+  snapshot_time timestamptz not null default now()
+);
+
 create table if not exists settlement_actions (
   id uuid primary key default gen_random_uuid(),
   league_id uuid not null references leagues(id) on delete cascade,

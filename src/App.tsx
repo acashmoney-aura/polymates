@@ -1,4 +1,5 @@
 import './App.css'
+import { useMemo, useState } from 'react'
 import logoMark from '/polymates-mark.svg'
 import {
   activityFeed,
@@ -11,6 +12,8 @@ import {
 import { useLeagueRuntime } from './lib/league-runtime'
 import { productSpec } from './lib/product-spec'
 import { describeRuntimeMode, hasSupabaseEnv } from './lib/supabase'
+import { fetchPolymarketAccountPositions } from './lib/polymarket'
+import type { PolymarketAccountPosition } from './lib/types'
 
 const onboardingSteps = [
   'Sign in and claim a username',
@@ -32,11 +35,30 @@ const adminQueue = [
   { label: 'League resets available', value: '2', note: 'Weekly Sprint rolls over tonight' },
 ]
 
+const defaultTrackedWallets = [
+  { name: 'Akash', wallet: 'Paste wallet', pnl: '+$842 fantasy', mode: 'Fantasy Playground' },
+  { name: 'Maya', wallet: 'Paste wallet', pnl: '+$615 fantasy', mode: 'Fantasy Playground' },
+  { name: 'Arnav', wallet: 'Paste wallet', pnl: '+$201 fantasy', mode: 'Fantasy Playground' },
+]
+
 function statusClass(status: string) {
   return status.toLowerCase().replace(/\s+/g, '-')
 }
 
+function currency(value: number) {
+  return value.toLocaleString(undefined, {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 2,
+  })
+}
+
 function App() {
+  const [walletAddress, setWalletAddress] = useState('')
+  const [accountPositions, setAccountPositions] = useState<PolymarketAccountPosition[]>([])
+  const [accountStatus, setAccountStatus] = useState('Paste a public Polymarket wallet or proxy-wallet address to compare real account PnL.')
+  const [accountLoading, setAccountLoading] = useState(false)
+
   const {
     context,
     runtimePersistenceMode,
@@ -58,6 +80,36 @@ function App() {
 
   const approvedMarketCount = approvals.filter((item) => item.approved).length
   const approvedSets = marketSets.filter((set) => selectedSetSlugs.includes(set.slug))
+  const accountSummary = useMemo(
+    () =>
+      accountPositions.reduce(
+        (summary, position) => ({
+          value: summary.value + position.currentValue,
+          pnl: summary.pnl + position.cashPnl,
+        }),
+        { value: 0, pnl: 0 },
+      ),
+    [accountPositions],
+  )
+
+  async function loadAccountPositions() {
+    setAccountLoading(true)
+    setAccountStatus('Loading public Polymarket account positions…')
+    try {
+      const fetched = await fetchPolymarketAccountPositions(walletAddress)
+      setAccountPositions(fetched)
+      setAccountStatus(
+        fetched.length > 0
+          ? `Loaded ${fetched.length} open Polymarket positions.`
+          : 'No open positions found for that address.',
+      )
+    } catch (error) {
+      setAccountPositions([])
+      setAccountStatus(error instanceof Error ? error.message : 'Could not load Polymarket account positions.')
+    } finally {
+      setAccountLoading(false)
+    }
+  }
 
   return (
     <main className="app-shell">
@@ -87,6 +139,7 @@ function App() {
           <a href="#market-sets">Market sets</a>
           <a href="#imports">Imports</a>
           <a href="#markets">Markets</a>
+          <a href="#connected">Connected</a>
           <a href="#admin">Admin</a>
         </nav>
       </header>
@@ -96,8 +149,8 @@ function App() {
           <p className="eyebrow">FANTASY PREDICTION LEAGUES</p>
           <h1>Create a private league. Choose the market packs. Import live markets. Trade fantasy-dollar contracts.</h1>
           <p className="body-copy hero-copy">
-            Polymates gives your group a simulated prediction exchange with league-specific balances,
-            configurable market sets, social activity, admin settlement, and portfolio-based competition.
+            Polymates starts as a fantasy playground: friends get a fake bankroll, make their own trades,
+            build bragging-rights portfolios, and compete without deposits, withdrawals, or real-money execution.
           </p>
           <div className="hero-actions">
             <a href="#dashboard" className="primary-cta">
@@ -153,12 +206,12 @@ function App() {
 
       <section className="why-now-card">
         <div>
-          <p className="eyebrow">WHY THIS PRODUCT</p>
-          <h2>Make the Polymarket feel social and safe before touching real-money complexity.</h2>
+          <p className="eyebrow">MAIN GAME MODE</p>
+          <h2>Fantasy Playground first, connected account tracking second.</h2>
         </div>
         <p className="body-copy">
-          Start with league-approved market sets, simulated AMM pricing, a real Polymarket discovery layer,
-          invite-only competition, and admin-friendly settlement. That gives you the game loop without the compliance headache.
+          The core loop is simulated trading with league rules and friend leaderboards. The connected mode is read-only:
+          players can link a public Polymarket wallet address so the league can compare real PnL against fantasy PnL.
         </p>
       </section>
 
@@ -211,6 +264,30 @@ function App() {
             ))}
           </div>
         </aside>
+      </section>
+
+      <section className="panel playground-panel">
+        <div className="panel-head">
+          <div>
+            <p className="section-label">Fantasy Playground</p>
+            <h3>Make your own trades and transactions</h3>
+          </div>
+          <span className="soft-chip">Default mode · fantasy only</span>
+        </div>
+        <div className="playground-grid">
+          <article className="mode-card">
+            <strong>Custom trade tickets</strong>
+            <p>Players choose YES or NO, set share size, and queue fantasy trade intents against approved markets.</p>
+          </article>
+          <article className="mode-card">
+            <strong>Private transaction history</strong>
+            <p>Every fantasy trade can become a ledger entry for cash, positions, realized PnL, and friend activity.</p>
+          </article>
+          <article className="mode-card">
+            <strong>League-only rules</strong>
+            <p>Admins control market packs, starting balances, weekly bonuses, lock times, settlement, and resets.</p>
+          </article>
+        </div>
       </section>
 
       <section className="panel market-set-panel" id="market-sets">
@@ -535,6 +612,83 @@ function App() {
                 <div>
                   <strong>{member.portfolio}</strong>
                   <span>{member.pnl}</span>
+                </div>
+              </article>
+            ))}
+          </div>
+        </aside>
+      </section>
+
+      <section className="connected-grid" id="connected">
+        <section className="panel connected-panel">
+          <div className="panel-head">
+            <div>
+              <p className="section-label">Connected Polymarket Mode</p>
+              <h3>Track real account winnings against friends</h3>
+            </div>
+            <span className="soft-chip">Read-only public Data API</span>
+          </div>
+          <div className="wallet-form">
+            <input
+              value={walletAddress}
+              onChange={(event) => setWalletAddress(event.target.value)}
+              placeholder="0x wallet or Polymarket proxy-wallet address"
+              aria-label="Polymarket wallet address"
+            />
+            <button type="button" className="mini-button active" onClick={() => void loadAccountPositions()} disabled={accountLoading}>
+              {accountLoading ? 'Loading' : 'Load account'}
+            </button>
+          </div>
+          <p className="body-copy compact-top">{accountStatus}</p>
+          <div className="summary-grid compact-top">
+            <article className="summary-card">
+              <span>Open position value</span>
+              <strong>{currency(accountSummary.value)}</strong>
+              <small>From public Polymarket positions</small>
+            </article>
+            <article className="summary-card">
+              <span>Open cash PnL</span>
+              <strong>{currency(accountSummary.pnl)}</strong>
+              <small>Unverified, read-only account view</small>
+            </article>
+          </div>
+          <div className="table-like-grid compact-top">
+            {accountPositions.slice(0, 6).map((position) => (
+              <article key={`${position.conditionId}-${position.outcome}`} className="position-row">
+                <div>
+                  <strong>{position.title}</strong>
+                  <span>
+                    {position.outcome} · {position.size.toFixed(2)} shares @ {(position.avgPrice * 100).toFixed(1)}¢
+                  </span>
+                </div>
+                <div>
+                  <strong>{currency(position.currentValue)}</strong>
+                  <span>
+                    {currency(position.cashPnl)} · {position.percentPnl.toFixed(1)}%
+                  </span>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <aside className="panel connected-friends-panel">
+          <div className="panel-head">
+            <div>
+              <p className="section-label">Friends board</p>
+              <h3>Fantasy vs connected accounts</h3>
+            </div>
+          </div>
+          <div className="leaderboard-stack">
+            {defaultTrackedWallets.map((friend) => (
+              <article key={friend.name} className="leaderboard-row">
+                <div>
+                  <strong>{friend.name}</strong>
+                  <span>{friend.mode}</span>
+                </div>
+                <div>
+                  <strong>{friend.pnl}</strong>
+                  <span>{friend.wallet}</span>
                 </div>
               </article>
             ))}

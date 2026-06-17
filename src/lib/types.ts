@@ -104,3 +104,16 @@ export type RuntimeSyncState = {
   level: 'idle' | 'syncing' | 'synced' | 'error'
   message: string
 }
+
+export type PolymarketAccountPosition = {
+  conditionId: string
+  title: string
+  outcome: string
+  size: number
+  avgPrice: number
+  currentValue: number
+  cashPnl: number
+  percentPnl: number
+  curPrice: number
+  endDate?: string
+}

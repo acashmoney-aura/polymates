@@ -124,7 +124,9 @@
 .workspace-grid,
 .portfolio-grid,
 .admin-grid,
+.connected-grid,
 .market-set-grid,
+.playground-grid,
 .flow-grid,
 .step-grid,
 .notification-stack,
@@ -154,10 +156,12 @@
 }
 
 .market-set-panel,
+.playground-panel,
 .league-builder-grid,
 .imports-grid,
 .workspace-grid,
 .portfolio-grid,
+.connected-grid,
 .admin-grid,
 .flow-grid {
   margin-top: 18px;
@@ -170,9 +174,15 @@
 
 .league-builder-grid,
 .imports-grid,
+.connected-grid,
 .admin-grid,
 .portfolio-grid {
   grid-template-columns: 1.15fr 0.85fr;
+}
+
+.playground-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 18px;
 }
 
 .workspace-grid {
@@ -193,7 +203,8 @@
 .secondary-cta,
 .ghost-button,
 .watchlist-card,
-.mini-button {
+.mini-button,
+.wallet-form input {
   transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -227,12 +238,25 @@
   background: rgba(255, 255, 255, 0.03);
 }
 
+.ghost-button {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
 .primary-cta:hover,
 .secondary-cta:hover,
 .ghost-button:hover,
 .watchlist-card:hover,
 .mini-button:hover {
   transform: translateY(-2px);
+}
+
+.mini-button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+  transform: none;
 }
 
 .safety-callout,
@@ -544,6 +568,18 @@
   gap: 16px;
 }
 
+.position-row > div:last-child,
+.leaderboard-row > div:last-child,
+.intent-row > div:last-child {
+  text-align: right;
+}
+
+.position-row span,
+.leaderboard-row span,
+.intent-row span {
+  display: block;
+}
+
 .intent-row {
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.02);
@@ -555,6 +591,29 @@
   justify-content: flex-start;
 }
 
+.wallet-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.wallet-form input {
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  color: var(--text-h);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0 16px;
+  outline: none;
+}
+
+.wallet-form input:focus {
+  border-color: rgba(125, 211, 252, 0.7);
+  box-shadow: 0 0 0 4px rgba(125, 211, 252, 0.12);
+}
+
 .compact-top {
   margin-top: 18px;
 }
@@ -562,7 +621,7 @@
 .eyebrow,
 .section-label {
   text-transform: uppercase;
-  letter-spacing: 0.18em;
+  letter-spacing: 0;
   font-size: 0.76rem;
   color: var(--muted-strong);
 }
@@ -586,10 +645,12 @@
   .hero-grid,
   .dashboard-grid,
   .market-set-grid,
+  .playground-grid,
   .league-builder-grid,
   .imports-grid,
   .workspace-grid,
   .portfolio-grid,
+  .connected-grid,
   .admin-grid,
   .detail-grid,
   .summary-grid,
@@ -608,7 +669,8 @@
   .why-now-card,
   .goal-mode-banner,
   .import-row,
-  .resolution-row {
+  .resolution-row,
+  .wallet-form {
     display: grid;
   }
 }
@@ -643,5 +705,9 @@
   .resolution-actions {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .wallet-form {
+    grid-template-columns: 1fr;
   }
 }

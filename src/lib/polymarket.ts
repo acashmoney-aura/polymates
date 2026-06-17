@@ -1,4 +1,4 @@
-import type { Market } from './types'
+import type { Market, PolymarketAccountPosition } from './types'
 
 type GammaMarket = {
   id?: string | number
@@ -14,6 +14,7 @@ type GammaMarket = {
 
 const POLYMARKET_GAMMA_URL =
   'https://gamma-api.polymarket.com/markets?limit=12&closed=false&active=true'
+const POLYMARKET_POSITIONS_URL = 'https://data-api.polymarket.com/positions'
 
 function parseStringArray(value: unknown): string[] {
   if (Array.isArray(value)) return value.map(String)
@@ -86,4 +87,58 @@ export async function fetchPolymarketMarkets(): Promise<Market[]> {
 
   const data = (await response.json()) as GammaMarket[]
   return data.map(toAppMarket).filter((market): market is Market => Boolean(market))
+}
+
+type PolymarketPositionResponse = {
+  conditionId?: string
+  title?: string
+  outcome?: string
+  size?: number
+  avgPrice?: number
+  currentValue?: number
+  cashPnl?: number
+  percentPnl?: number
+  curPrice?: number
+  endDate?: string
+}
+
+function isWalletAddress(value: string) {
+  return /^0x[a-fA-F0-9]{40}$/.test(value.trim())
+}
+
+export async function fetchPolymarketAccountPositions(walletAddress: string): Promise<PolymarketAccountPosition[]> {
+  const user = walletAddress.trim()
+  if (!isWalletAddress(user)) {
+    throw new Error('Enter a valid 0x wallet or Polymarket proxy-wallet address.')
+  }
+
+  const url = new URL(POLYMARKET_POSITIONS_URL)
+  url.searchParams.set('user', user)
+  url.searchParams.set('limit', '25')
+  url.searchParams.set('sortBy', 'CASHPNL')
+  url.searchParams.set('sortDirection', 'DESC')
+
+  const response = await fetch(url, {
+    headers: {
+      Accept: 'application/json',
+    },
+  })
+
+  if (!response.ok) {
+    throw new Error(`Polymarket positions fetch failed: ${response.status}`)
+  }
+
+  const data = (await response.json()) as PolymarketPositionResponse[]
+  return data.map((item) => ({
+    conditionId: item.conditionId ?? '',
+    title: item.title ?? 'Untitled market',
+    outcome: item.outcome ?? 'Outcome',
+    size: Number(item.size ?? 0),
+    avgPrice: Number(item.avgPrice ?? 0),
+    currentValue: Number(item.currentValue ?? 0),
+    cashPnl: Number(item.cashPnl ?? 0),
+    percentPnl: Number(item.percentPnl ?? 0),
+    curPrice: Number(item.curPrice ?? 0),
+    endDate: item.endDate,
+  }))
 }

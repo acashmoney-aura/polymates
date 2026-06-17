@@ -120,18 +120,6 @@ export function useLeagueRuntime() {
 
   const discoveryMarkets = liveMarkets.length > 0 ? liveMarkets : fallbackMarkets
 
-  useEffect(() => {
-    if (discoveryMarkets.length === 0 || approvals.length > 0) return
-    setApprovals(
-      discoveryMarkets.slice(0, 3).map((market) => ({
-        marketId: market.id,
-        source: liveMarkets.length > 0 ? 'polymarket' : 'seed',
-        approved: true,
-        approvedAt: 'Just synced',
-      })),
-    )
-  }, [approvals.length, discoveryMarkets, liveMarkets.length])
-
   const whitelistedMarketIds = useMemo(
     () => approvals.filter((item) => item.approved).map((item) => item.marketId),
     [approvals],
@@ -141,12 +129,6 @@ export function useLeagueRuntime() {
     const approved = discoveryMarkets.filter((market) => whitelistedMarketIds.includes(market.id))
     return approved.length > 0 ? approved : discoveryMarkets
   }, [discoveryMarkets, whitelistedMarketIds])
-
-  useEffect(() => {
-    if (!leagueVisibleMarkets.some((market) => market.id === selectedMarketId)) {
-      setSelectedMarketId(leagueVisibleMarkets[0]?.id ?? '')
-    }
-  }, [leagueVisibleMarkets, selectedMarketId])
 
   const selectedMarket = useMemo(
     () => leagueVisibleMarkets.find((market) => market.id === selectedMarketId) ?? leagueVisibleMarkets[0],
