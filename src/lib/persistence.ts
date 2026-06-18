@@ -149,51 +149,66 @@ export async function loadPersistedRuntimeSnapshot(): Promise<PersistedRuntimeSn
 
   const context = await getLeagueContext()
   if (!context?.leagueId) return null
+  const db = supabase
+  const leagueId = context.leagueId
+
+  async function loadApprovalRows() {
+    const pageSize = 1000
+    const rows: ApprovalRow[] = []
+    for (let from = 0; ; from += pageSize) {
+      const { data, error } = await db
+        .from('league_markets')
+        .select('status, approval_source, created_at, external_markets!inner(external_id, title, stage_label, closes_label, yes_price, no_price, volume_label, raw_payload)')
+        .eq('league_id', leagueId)
+        .not('external_market_id', 'is', null)
+        .range(from, from + pageSize - 1)
+
+      if (error) throw error
+      const pageRows = ((data ?? []) as unknown as ApprovalRow[])
+      rows.push(...pageRows)
+      if (pageRows.length < pageSize) break
+    }
+    return rows
+  }
 
   const [
-    { data: approvalsData, error: approvalsError },
+    approvalRows,
     { data: intentsData, error: intentsError },
     { data: marketSetsData, error: marketSetsError },
     { data: snapshotsData, error: snapshotsError },
     { data: activityData, error: activityError },
   ] = await Promise.all([
-    supabase
-      .from('league_markets')
-      .select('status, approval_source, created_at, external_markets!inner(external_id, title, stage_label, closes_label, yes_price, no_price, volume_label, raw_payload)')
-      .eq('league_id', context.leagueId)
-      .not('external_market_id', 'is', null),
-    supabase
+    loadApprovalRows(),
+    db
       .from('trade_intents')
       .select('id, side, shares, estimated_price, estimated_cost, status, created_at, market_title, external_markets(external_id)')
-      .eq('league_id', context.leagueId)
+      .eq('league_id', leagueId)
       .order('created_at', { ascending: false })
       .limit(6),
-    supabase
+    db
       .from('league_market_sets')
       .select('market_sets!inner(slug, name, description)')
-      .eq('league_id', context.leagueId)
+      .eq('league_id', leagueId)
       .eq('enabled', true),
-    supabase
+    db
       .from('league_snapshots')
       .select('rank, cash_balance, portfolio_value, realized_pnl, unrealized_pnl, users!inner(username)')
-      .eq('league_id', context.leagueId)
+      .eq('league_id', leagueId)
       .order('rank', { ascending: true })
       .limit(12),
-    supabase
+    db
       .from('activity_feed')
       .select('created_at, metadata, users(username)')
-      .eq('league_id', context.leagueId)
+      .eq('league_id', leagueId)
       .order('created_at', { ascending: false })
       .limit(8),
   ])
 
-  if (approvalsError) throw approvalsError
   if (intentsError) throw intentsError
   if (marketSetsError) throw marketSetsError
   if (snapshotsError) throw snapshotsError
   if (activityError) throw activityError
 
-  const approvalRows = (approvalsData ?? []) as ApprovalRow[]
   const approvals: LeagueMarketApproval[] = approvalRows.map((row) => ({
     marketId: row.external_markets?.external_id ?? '',
     source: row.approval_source === 'seed' ? 'seed' : 'polymarket',

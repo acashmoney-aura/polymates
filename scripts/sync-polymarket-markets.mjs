@@ -2,11 +2,8 @@ import { Client } from 'pg'
 
 const databaseUrl = process.env.DATABASE_URL
 const inviteCode = process.env.LEAGUE_INVITE_CODE ?? 'START123'
-const limit = Number(process.env.POLYMARKET_SYNC_LIMIT ?? 12)
-const gammaUrl = new URL('https://gamma-api.polymarket.com/markets')
-gammaUrl.searchParams.set('limit', String(limit))
-gammaUrl.searchParams.set('closed', 'false')
-gammaUrl.searchParams.set('active', 'true')
+const pageSize = Number(process.env.POLYMARKET_SYNC_PAGE_SIZE ?? 100)
+const maxMarkets = Number(process.env.POLYMARKET_SYNC_LIMIT ?? 2000)
 
 if (!databaseUrl) {
   console.error('DATABASE_URL is required.')
@@ -59,13 +56,36 @@ function toBinaryMarket(item) {
   }
 }
 
-const response = await fetch(gammaUrl, { headers: { Accept: 'application/json' } })
-if (!response.ok) {
-  throw new Error(`Polymarket Gamma fetch failed: ${response.status}`)
+async function fetchGammaPage(offset) {
+  const gammaUrl = new URL('https://gamma-api.polymarket.com/markets')
+  gammaUrl.searchParams.set('limit', String(pageSize))
+  gammaUrl.searchParams.set('offset', String(offset))
+  gammaUrl.searchParams.set('closed', 'false')
+  gammaUrl.searchParams.set('active', 'true')
+
+  const response = await fetch(gammaUrl, { headers: { Accept: 'application/json' } })
+  if (!response.ok) {
+    throw new Error(`Polymarket Gamma fetch failed at offset ${offset}: ${response.status}`)
+  }
+
+  return response.json()
 }
 
-const data = await response.json()
-const markets = data.map(toBinaryMarket).filter(Boolean)
+const marketsById = new Map()
+for (let offset = 0; offset < maxMarkets; offset += pageSize) {
+  const page = await fetchGammaPage(offset)
+  if (!Array.isArray(page) || page.length === 0) break
+
+  for (const item of page) {
+    const market = toBinaryMarket(item)
+    if (market) marketsById.set(market.externalId, market)
+  }
+
+  console.log(`Fetched ${page.length} Gamma markets at offset ${offset}; kept ${marketsById.size} binary markets.`)
+  if (page.length < pageSize) break
+}
+
+const markets = [...marketsById.values()]
 
 const client = new Client({
   connectionString: databaseUrl,

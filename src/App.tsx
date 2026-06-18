@@ -1,5 +1,6 @@
 import './App.css'
 import { useEffect, useMemo, useState } from 'react'
+import type { UIEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import logoMark from '/polymates-mark.svg'
 import { useLeagueRuntime } from './lib/league-runtime'
@@ -156,6 +157,7 @@ function App() {
   const [historyInterval, setHistoryInterval] = useState<'1h' | '6h' | '1d' | '1w' | '1m' | 'all'>('6h')
   const [priceHistory, setPriceHistory] = useState<MarketPricePoint[]>([])
   const [historyStatus, setHistoryStatus] = useState('Select a market to load CLOB history.')
+  const [marketDisplayLimit, setMarketDisplayLimit] = useState(40)
 
   const {
     context,
@@ -200,11 +202,13 @@ function App() {
     if (!query) return true
     return `${market.title} ${market.stage} ${market.category ?? ''}`.toLowerCase().includes(query)
   })
+  const displayedMarkets = visibleMarkets.slice(0, marketDisplayLimit)
   const totalLiveVolume = leagueVisibleMarkets.reduce((sum, market) => {
-    const match = market.volume.match(/\$([0-9.]+)([Mk]?)/i)
+    const match = market.volume.match(/\$([0-9.]+)([BMk]?)/i)
     if (!match) return sum
     const value = Number(match[1])
-    const multiplier = match[2]?.toLowerCase() === 'm' ? 1_000_000 : match[2]?.toLowerCase() === 'k' ? 1_000 : 1
+    const suffix = match[2]?.toLowerCase()
+    const multiplier = suffix === 'b' ? 1_000_000_000 : suffix === 'm' ? 1_000_000 : suffix === 'k' ? 1_000 : 1
     return sum + (Number.isFinite(value) ? value * multiplier : 0)
   }, 0)
 
@@ -228,6 +232,14 @@ function App() {
       active = false
     }
   }, [historyInterval, selectedMarket])
+
+  function handleMarketListScroll(event: UIEvent<HTMLDivElement>) {
+    const element = event.currentTarget
+    const remaining = element.scrollHeight - element.scrollTop - element.clientHeight
+    if (remaining < 260) {
+      setMarketDisplayLimit((current) => Math.min(current + 40, visibleMarkets.length))
+    }
+  }
   const accountSummary = useMemo(
     () =>
       accountPositions.reduce(
@@ -684,7 +696,10 @@ function App() {
                   </div>
                   <input
                     value={marketSearch}
-                    onChange={(event) => setMarketSearch(event.target.value)}
+                    onChange={(event) => {
+                      setMarketSearch(event.target.value)
+                      setMarketDisplayLimit(40)
+                    }}
                     placeholder="Search markets"
                     aria-label="Search Polymarket markets"
                   />
@@ -696,15 +711,25 @@ function App() {
                   </article>
                   <article>
                     <span>Estimated live volume</span>
-                    <strong>{totalLiveVolume >= 1_000_000 ? `$${(totalLiveVolume / 1_000_000).toFixed(1)}M` : `$${(totalLiveVolume / 1_000).toFixed(1)}k`}</strong>
+                    <strong>
+                      {totalLiveVolume >= 1_000_000_000
+                        ? `$${(totalLiveVolume / 1_000_000_000).toFixed(1)}B`
+                        : totalLiveVolume >= 1_000_000
+                          ? `$${(totalLiveVolume / 1_000_000).toFixed(1)}M`
+                          : `$${(totalLiveVolume / 1_000).toFixed(1)}k`}
+                    </strong>
                   </article>
                   <article>
                     <span>With CLOB history</span>
                     <strong>{leagueVisibleMarkets.filter((market) => market.clobTokenIds?.[0]).length}</strong>
                   </article>
+                  <article>
+                    <span>Showing</span>
+                    <strong>{Math.min(marketDisplayLimit, visibleMarkets.length)} / {visibleMarkets.length}</strong>
+                  </article>
                 </div>
-                <div className="market-explorer-list">
-                  {visibleMarkets.map((market) => {
+                <div className="market-explorer-list" onScroll={handleMarketListScroll}>
+                  {displayedMarkets.map((market) => {
                     const active = market.id === selectedMarket?.id
                     return (
                       <button key={market.id} type="button" className={active ? 'market-explorer-row active' : 'market-explorer-row'} onClick={() => setSelectedMarketId(market.id)}>
@@ -719,6 +744,15 @@ function App() {
                       </button>
                     )
                   })}
+                  <div className="market-scroll-sentinel">
+                    {marketDisplayLimit < visibleMarkets.length ? (
+                      <button type="button" onClick={() => setMarketDisplayLimit((current) => Math.min(current + 80, visibleMarkets.length))}>
+                        Load more markets
+                      </button>
+                    ) : (
+                      <span>{visibleMarkets.length ? 'All matching markets loaded' : 'No markets match this search'}</span>
+                    )}
+                  </div>
                 </div>
               </section>
               <section className="market-title-card">

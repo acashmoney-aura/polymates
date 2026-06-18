@@ -139,7 +139,10 @@ export function useLeagueRuntime() {
 
   const leagueVisibleMarkets = useMemo(() => {
     const liveApproved = discoveryMarkets.filter((market) => whitelistedMarketIds.includes(market.id))
-    return liveApproved.length > 0 ? liveApproved : approvedMarkets
+    const merged = new Map<string, Market>()
+    for (const market of approvedMarkets) merged.set(market.id, market)
+    for (const market of liveApproved) merged.set(market.id, market)
+    return [...merged.values()]
   }, [approvedMarkets, discoveryMarkets, whitelistedMarketIds])
 
   const selectedMarket = useMemo(
