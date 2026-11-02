@@ -4,8 +4,9 @@ import type { Request, Response } from 'express'
 import { z } from 'zod'
 import { agentApi } from './agent-api.ts'
 import { leagueAdmin } from './leagues.ts'
-import { runBacktest, scanner, STRATEGY_TEMPLATES } from './backtest.ts'
 import { getPerpAsset, listPerpAssets, PERP_CATEGORIES, perpsApi } from './perps.ts'
+import { eventCurveFor, microstructure, portfolioRisk, volatilityRanking, volCone } from './analytics.ts'
+import { runBacktest, runSweep, scanner, STRATEGY_TEMPLATES, sweepableParams } from './backtest.ts'
 import { createScript, deleteScript, listScripts, scriptLogsFor, updateScript } from './script-api.ts'
 import { runScript } from './scripts.ts'
 import { db } from './state.ts'
@@ -140,6 +141,34 @@ function build(userId: string) {
     market_id: z.string(), range: z.enum(['1h', '6h', '1d', '1w', '1m', 'all']).default('1w'), n: z.number().int().min(1).max(5000).default(200),
   }, (a) => api.getHistory(a.market_id, a.n, a.range))
   tool('scan_markets', 'Quant scanner: negRisk overround (sum of YES != 100%), biggest 24h movers, coin-flips ending this week, widest spreads, high-volume long shots.', {}, () => scanner())
+  tool('get_market_microstructure', 'Order-book microstructure for a market: cumulative depth per side, spread, microprice, and bid/ask imbalance within 1/2/5/10¢ of mid. In exchange leagues also the recent trade tape with buy/sell direction, VWAP and net order flow.', {
+    market_id: z.string(), league_id: leagueId,
+  }, (a) => microstructure(userId, a.market_id, a.league_id))
+  tool('get_event_curve', 'Probability term structure of a date-ladder event ("X by June / by Sept / by Dec"): implied probability per date, survival, implied hazard rate per day between dates, and calendar-arb violations where a later date is priced below an earlier one.', {
+    slug: z.string(), league_id: leagueId,
+  }, (a) => eventCurveFor(userId, a.slug, a.league_id))
+  tool('get_volatility', 'Realized volatility. With market_id: a volatility cone (vol over 1h, 6h, 1d, 3d, 1w windows with min/p10/p25/median/p75/p90/max bands and the current reading). Without: the most volatile liquid markets ranked by 24h realized vol, with 7d vol and the 1d/7d regime ratio. Units: probability points per √day.', {
+    market_id: z.string().optional(), limit: z.number().int().min(1).max(80).default(30),
+  }, (a) => (a.market_id ? volCone(a.market_id) : volatilityRanking(a.limit)))
+  tool('get_portfolio_risk', 'Risk view of your positions: exposure by category, scenario P&L if each market resolves YES or NO, expected value at current prices, best/worst case, resolution risk (independent vs correlation-weighted), 1-day 95% VaR, concentration, and per-position risk contribution.', {
+    league_id: leagueId,
+  }, (a) => portfolioRisk(lid(a.league_id), userId))
+  tool(
+    'run_parameter_sweep',
+    'Backtest one strategy across a grid of 1-2 numeric constants (e.g. FAST and SLOW in the momentum template) and return Sharpe, total return, max drawdown and trades per cell, plus the best cell. At most 30 combinations.',
+    {
+      code: z.string().min(1).max(100_000),
+      market_ids: z.array(z.string()).min(1).max(8),
+      params: z.array(z.object({ name: z.string(), values: z.array(z.number()).min(1).max(12) })).min(1).max(2)
+        .describe('Constants declared at the top level as `const NAME = number`'),
+      range: z.enum(['1d', '1w', '1m', 'all']).default('1m'),
+      cash: z.number().positive().default(1000),
+      spread: z.number().min(0).max(0.2).default(0.02),
+      fee_bps: z.number().min(0).max(1000).default(0),
+    },
+    (a) => runSweep({ code: a.code, marketIds: a.market_ids, params: a.params, range: a.range, cash: a.cash, spread: a.spread, feeBps: a.fee_bps }),
+  )
+  tool('list_sweep_params', 'Numeric top-level constants in strategy code that run_parameter_sweep can vary.', { code: z.string().max(100_000) }, (a) => sweepableParams(a.code))
   tool('list_strategy_templates', 'Example strategies (momentum, mean reversion, market maker, longshot fade, buy & hold) you can backtest or upload.', {}, () => STRATEGY_TEMPLATES)
   tool(
     'run_backtest',

@@ -150,7 +150,40 @@ A position has these fields: `{id, symbol, side, leverage, qty, notional, margin
 |---|---|---|
 | GET | `/api/backtest/templates` | starter strategies: momentum, mean reversion, market maker, longshot fade, buy & hold |
 | POST | `/api/backtest` | `{code, marketIds[1-8], range: '1d'\|'1w'\|'1m'\|'all', cash, spread, feeBps}` (auth required) |
-| GET | `/api/quant/scanner` | negRisk overround and arbs, 24h movers, coin flips ending this week, wide spreads, long shots |
+| GET | `/api/quant/scanner` | negRisk overround and arbs, 24h movers, coin flips ending this week, wide spreads, long shots. The top overround candidates carry a `clob` check against the live order books (see below) |
+| POST | `/api/backtest/sweep` | `{...backtest body, params: [{name, values[]}]}`: run the strategy over a grid of 1-2 numeric constants, at most 30 runs (auth required) |
+| POST | `/api/backtest/params` | `{code}` → `[{name, value}]`, the top-level numeric constants a sweep can vary |
+| GET | `/api/quant/volatility?limit=30` | most volatile liquid markets: `vol1d`, `vol7d`, `regime` (1d ÷ 7d), `range7d`, `change7d`, a 7d sparkline and `category` |
+| GET | `/api/markets/:id/volcone` | realized-vol cone: per window (1h, 6h, 1d, 3d, 1w) `min, p10, p25, median, p75, p90, max, current, percentile` |
+| GET | `/api/markets/:id/microstructure?league=` | spread, microprice, imbalance within 1/2/5/10¢, cumulative depth per side; in exchange leagues also the trade `tape` and `flow` (buy/sell notional, net flow, VWAP) |
+| GET | `/api/events/:slug/curve?league=` | term structure of a date-ladder event (see below) |
+| GET | `/api/leagues/:id/risk` | your portfolio risk (see below) |
+
+Volatility is in probability points per √day: over a window of `d` days, `√(Σ Δp² / d)`. A reading of 0.05 means the YES price typically moves about 5pp in a day.
+
+Parameter sweeps substitute values into constants declared at the top level, such as `const FAST = 6, SLOW = 24`. A sweep holds one backtester slot and runs its cells one after another, with a 90-second budget; `truncated: true` means the grid is partial. Each cell reports `sharpe, totalReturn, maxDrawdown, trades, winRate`, and `best` is the cell with the highest Sharpe.
+
+The event curve applies to events whose outcomes are dates:
+- `kind: 'by'` is a cumulative ladder ("X by June / by Sept"), so prices must rise with the date.
+- `kind: 'through'` is a survival ladder ("ceasefire holds through…"), so prices must fall.
+- Each rung has `price`, `survival`, `conditional` (the chance the event happens in that window, given it hadn't yet), and `hazardPerDay = −ln(S₂/S₁)/Δdays`.
+- `violations` lists adjacent dates priced the wrong way round, with the calendar trade that captures the gap.
+- For other events, `kind` is `'none'`.
+
+The scanner's `clob` field, on the top overround candidates:
+- `sumAsk` and `sumBid` are recomputed from the live CLOB books.
+- `arb` is set only if the live books confirm it.
+- `size` is the number of complete sets available at the top of book on every leg.
+- `profit` is `edge × size`.
+
+Portfolio risk returns:
+- `expected`: payout and P&L if every market resolves with the probability it trades at now.
+- `resolution`: payout σ assuming independence and weighted by 7-day price-change correlations, their ratio, and best and worst case.
+- `var1d95`: one-day 95% mark-to-market VaR.
+- `concentration`: HHI and effective number of positions.
+- `categories`: exposure by category.
+- Per position: `ifYes`/`ifNo` scenario P&L, `netDelta`, `dailyVol` and `riskContribution`.
+- The correlation matrix.
 
 How the backtester works:
 - It runs the same `onTick(pm)` code as hosted scripts. You can also define `initialize(pm)`, which runs once.
@@ -179,7 +212,7 @@ claude mcp add --transport http polymates https://YOUR-API/mcp --header "Authori
 { "mcpServers": { "polymates": { "url": "https://YOUR-API/mcp", "headers": { "Authorization": "Bearer pm_..." } } } }
 ```
 
-Tools: `whoami, list_leagues, create_league, join_league, get_league, update_league, set_event_enabled, set_market_enabled, set_member_role, remove_member, transfer_ownership, leave_league, reset_season, delete_league, search_markets, get_price_history, scan_markets, list_strategy_templates, run_backtest, get_event, get_market, get_order_book, get_portfolio, place_order, cancel_order, cancel_all_orders, list_orders, list_trades, get_leaderboard, list_scripts, upload_script, run_script, get_script_logs, set_script_enabled, delete_script, list_perp_assets, get_perp_asset, open_perp, close_perp, list_perp_positions`. Omit `league_id` to use your first league.
+Tools: `whoami, list_leagues, create_league, join_league, get_league, update_league, set_event_enabled, set_market_enabled, set_member_role, remove_member, transfer_ownership, leave_league, reset_season, delete_league, search_markets, get_price_history, scan_markets, list_strategy_templates, run_backtest, run_parameter_sweep, list_sweep_params, get_volatility, get_market_microstructure, get_event_curve, get_portfolio_risk, get_event, get_market, get_order_book, get_portfolio, place_order, cancel_order, cancel_all_orders, list_orders, list_trades, get_leaderboard, list_scripts, upload_script, run_script, get_script_logs, set_script_enabled, delete_script, list_perp_assets, get_perp_asset, open_perp, close_perp, list_perp_positions`. Omit `league_id` to use your first league.
 
 ## Hosted scripts
 

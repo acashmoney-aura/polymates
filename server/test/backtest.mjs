@@ -16,3 +16,16 @@ const bad = await j('POST', '/api/backtest', { code: 'function onTick(pm){ while
 console.log('infinite loop ->', bad.ok, bad.error)
 const sc = await j('GET', '/api/quant/scanner')
 console.log('scanner', Object.fromEntries(Object.entries(sc).map(([k, v]) => [k, Array.isArray(v) ? v.length : v])), sc.overround[0])
+// parameter sweep over the momentum template's FAST x SLOW
+const mom = templates.find((t) => t.id === 'momentum')
+const params = await j('POST', '/api/backtest/params', { code: mom.code })
+if (!params.some((p) => p.name === 'FAST')) throw new Error('sweep params missing FAST')
+const sw = await j('POST', '/api/backtest/sweep', { code: mom.code, marketIds: ids.slice(0, 2), range: '1m', params: [{ name: 'FAST', values: [3, 6] }, { name: 'SLOW', values: [12, 24] }] }, u.token)
+if (sw.cells.length !== 4 || !sw.best) throw new Error(`sweep returned ${sw.cells.length} cells`)
+console.log('sweep', sw.cells.map((c) => `${c.x}/${c.y}:${c.sharpe.toFixed(2)}`).join(' '), `${sw.ms}ms`)
+const tooBig = await fetch(`${B}/api/backtest/sweep`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${u.token}` }, body: JSON.stringify({ code: mom.code, marketIds: ids, params: [{ name: 'FAST', values: [1, 2, 3, 4, 5, 6] }, { name: 'SLOW', values: [10, 20, 30, 40, 50, 60] }] }) })
+console.log('36-cell sweep ->', tooBig.status)
+const vol = await j('GET', '/api/quant/volatility?limit=5')
+const cone = vol.markets[0] ? await j('GET', `/api/markets/${vol.markets[0].marketId}/volcone`) : null
+console.log('volatility', vol.markets.length, 'cone windows', cone?.cone.map((c) => c.window).join(','))
+console.log('scanner clob-checked', sc.overround.filter((o) => o.clob).length)

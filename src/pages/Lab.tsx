@@ -7,17 +7,18 @@ import { Icon } from '../icons'
 import { align, corr, diffs, fmtNum, fmtPct, regress, rollingCorr, type Pt } from '../quant'
 import { Link, navigate, useLocation, useTitle } from '../router'
 import { useApp } from '../store'
+import { BacktestAnalytics, Sweep, UnderwaterStats, Volatility } from './LabPro'
 
 const PALETTE = ['#0093fd', '#ff5952', '#ff7f0e', '#fdc503', '#9b51e0', '#2dca65', '#ff6fb5', '#5ce1e6']
 
-type Picked = { id: string; title: string; question: string; image: string; price: number }
+export type Picked = { id: string; title: string; question: string; image: string; price: number }
 
 /** 'Event · Outcome' → 'Outcome' for compact labels */
 const short = (title: string) => (title.includes(' · ') ? title.split(' · ').slice(1).join(' · ') : title)
 
 /* ---------------- market picker ---------------- */
 
-function MarketPicker({ picked, setPicked, max = 8 }: { picked: Picked[]; setPicked: (p: Picked[]) => void; max?: number }) {
+export function MarketPicker({ picked, setPicked, max = 8 }: { picked: Picked[]; setPicked: (p: Picked[]) => void; max?: number }) {
   const { leagueId, portfolio } = useApp()
   const [q, setQ] = useState('')
   const [results, setResults] = useState<(Market & { eventTitle: string })[]>([])
@@ -94,7 +95,7 @@ function usePickedFromQuery(): [Picked[], (p: Picked[]) => void] {
 /* ---------------- backtest ---------------- */
 
 interface Template { id: string; name: string; description: string; code: string }
-interface BacktestResult {
+export interface BacktestResult {
   ok: boolean
   error: string | null
   config: { range: string; cash: number; spread: number; feeBps: number; bars: number; barSeconds: number }
@@ -105,7 +106,7 @@ interface BacktestResult {
   logs: { t: number; level: string; msg: string }[]
 }
 
-function Tile({ label, value, format, tone, hint }: { label: string; value: number | null | undefined; format: (n: number) => string; tone?: boolean; hint?: string }) {
+export function Tile({ label, value, format, tone, hint }: { label: string; value: number | null | undefined; format: (n: number) => string; tone?: boolean; hint?: string }) {
   const v = value ?? NaN
   return (
     <div className={`tile ${tone && Number.isFinite(v) ? (v >= 0 ? 'up' : 'down') : ''}`} title={hint}>
@@ -258,7 +259,7 @@ pm.cancel(orderId)  pm.cancelAll(id?)  pm.log(...)  pm.store`}</pre>
               <div className="text-tabs">
                 {(['equity', 'drawdown', 'trades', 'logs'] as const).map((k) => (
                   <button key={k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)}>
-                    {k === 'equity' ? 'Equity' : k === 'drawdown' ? 'Drawdown' : k === 'trades' ? `Trades (${res.fills.length})` : `Logs (${res.logs.length})`}
+                    {k === 'equity' ? 'Equity' : k === 'drawdown' ? 'Underwater' : k === 'trades' ? `Trades (${res.fills.length})` : `Logs (${res.logs.length})`}
                   </button>
                 ))}
                 <span className="grow" />
@@ -271,6 +272,7 @@ pm.cancel(orderId)  pm.cancelAll(id?)  pm.log(...)  pm.store`}</pre>
                   { name: 'Buy & hold', color: '#7d8189', values: res.equity.map((e) => e.benchmark), dashed: true },
                 ]} />
               )}
+              {tab === 'drawdown' && <UnderwaterStats res={res} />}
               {tab === 'drawdown' && (
                 <LineChart t={t} height={220} yMax={0} format={(v) => fmtPct(v, 0)} zero series={[
                   { name: 'Drawdown', color: '#ff5952', values: res.equity.map((e) => e.drawdown), area: true },
@@ -297,8 +299,10 @@ pm.cancel(orderId)  pm.cancelAll(id?)  pm.log(...)  pm.store`}</pre>
               )}
               <p className="muted small">{res.config.bars} bars of ~{Math.round(res.config.barSeconds / 60)}m · {res.config.spread * 100}¢ simulated spread · {res.config.feeBps}bps fees{res.settlements.length ? ` · ${res.settlements.length} market(s) settled at resolution` : ''}</p>
             </div>
+            {res.ok && <BacktestAnalytics res={res} />}
           </div>
         )}
+        <Sweep code={code} setCode={setCode} body={{ marketIds: picked.map((p) => p.id), range, cash: Number(cash), spread: Number(spread) / 100, feeBps: Number(fee) }} />
       </div>
     </div>
   )
@@ -401,9 +405,15 @@ function Correlation() {
 
 /* ---------------- scanner ---------------- */
 
+const pct1 = (x: number) => `${(x * 100).toFixed(1)}%`
+const timeAgoS = (ms: number) => `${Math.max(1, Math.round((Date.now() - ms) / 1000))}s ago`
+
 interface ScanRow { marketId?: string; title: string; eventSlug: string | null; eventTitle?: string; image: string; price?: number; change24h?: number | null; volume24h?: number; volume?: number; spread?: number; endDate?: string | null }
 interface Scan {
-  overround: { eventSlug: string; title: string; image: string; outcomes: number; sumMid: number; sumAsk: number; sumBid: number; arb: string | null; volume: number }[]
+  overround: {
+    eventSlug: string; title: string; image: string; outcomes: number; sumMid: number; sumAsk: number; sumBid: number; arb: string | null; volume: number
+    clob: { checkedAt: number; sumAsk: number | null; sumBid: number | null; arb: string | null; size: number; profit: number; edge: number | null } | null
+  }[]
   movers: ScanRow[]; coinflips: ScanRow[]; spreads: ScanRow[]; longshots: ScanRow[]
 }
 
@@ -417,7 +427,7 @@ function Scanner() {
     return () => clearInterval(t)
   }, [])
   const desc: Record<typeof tab, string> = {
-    overround: 'One-winner events whose YES prices don’t add up to 100%. If buying every YES at the ask costs under $1 (or selling every YES at the bid pays over $1), that’s a locked-in arb, so check the live book first.',
+    overround: 'One-winner events whose YES prices don’t add up to 100%. If buying every YES at the ask costs under $1 (or selling every YES at the bid pays over $1), that’s a locked-in arb. The top candidates are re-checked against the live CLOB books (●) and sized by top-of-book depth.',
     movers: 'Biggest 24h moves among liquid, undecided markets.',
     coinflips: 'Close to 50/50 and resolving within 7 days: maximum variance.',
     spreads: 'Widest bid/ask among active markets, where market makers can earn the spread.',
@@ -439,10 +449,16 @@ function Scanner() {
           {data.overround.map((r, i) => (
             <Link key={r.eventSlug} to={`/event/${r.eventSlug}`} className="ptable-row scan-row" style={{ animationDelay: `${i * 20}ms` }}>
               <span className="pt-market"><Img src={r.image} size={36} /><span className="pt-text"><span className="ellipsis">{r.title}</span>
-                <small className="muted">{r.outcomes} outcomes · {compactUsd(r.volume)} vol {r.arb && <span className="arb-tag">{r.arb === 'buy-all' ? 'BUY-ALL ARB' : 'SELL-ALL ARB'}</span>}</small></span></span>
-              <span className={Math.abs(r.sumMid - 1) > 0.03 ? 'no-color' : ''}>{pct(r.sumMid)}</span>
-              <span>{pct(r.sumAsk)}</span>
-              <span>{pct(r.sumBid)}</span>
+                <small className="muted">{r.outcomes} outcomes · {compactUsd(r.volume)} vol{' '}
+                  {r.clob ? (
+                    r.clob.arb
+                      ? <span className="arb-tag live" title={`Confirmed on the live CLOB ${timeAgoS(r.clob.checkedAt)}: ${r.clob.size.toFixed(0)} sets at top of book`}>{r.clob.arb === 'buy-all' ? 'BUY-ALL' : 'SELL-ALL'} ARB · CLOB ✓ · {usd(r.clob.profit)} on {Math.round(r.clob.size)} sets</span>
+                      : <span className="clob-tag" title="Checked against live order books">CLOB checked · no arb</span>
+                  ) : r.arb && <span className="arb-tag" title="From Gamma's cached quotes; not confirmed on the live book">{r.arb === 'buy-all' ? 'BUY-ALL' : 'SELL-ALL'} ARB? · unconfirmed</span>}
+                </small></span></span>
+              <span className={`mono ${Math.abs(r.sumMid - 1) > 0.03 ? 'no-color' : ''}`}>{pct1(r.sumMid)}</span>
+              <span className="mono">{pct1(r.clob?.sumAsk ?? r.sumAsk)}{r.clob?.sumAsk != null && <small className="clob-dot" title="live CLOB"> ●</small>}</span>
+              <span className="mono">{pct1(r.clob?.sumBid ?? r.sumBid)}{r.clob?.sumBid != null && <small className="clob-dot" title="live CLOB"> ●</small>}</span>
             </Link>
           ))}
         </div>
@@ -478,24 +494,25 @@ function Scanner() {
 
 export function Lab() {
   const { query } = useLocation()
-  const tab = (query.get('tab') as 'backtest' | 'correlation' | 'scanner') || 'backtest'
+  const tab = (query.get('tab') as 'backtest' | 'correlation' | 'volatility' | 'scanner') || 'backtest'
   useTitle('Quant Lab')
   return (
     <div className="wrap page lab">
       <div className="lab-hero">
         <div>
           <h1><span className="gradient-text">Quant Lab</span></h1>
-          <p className="muted">Backtest strategies on real Polymarket history, find correlated markets, and scan for mispricings. Every tool here is also available to agents over MCP.</p>
+          <p className="muted">Backtest and parameter-sweep strategies on real Polymarket history, find correlated markets, read volatility cones, and scan for mispricings. Every tool here is also available to agents over MCP.</p>
         </div>
       </div>
       <div className="lab-tabs">
-        {([['backtest', 'Backtest', 'zap'], ['correlation', 'Correlation', 'swap'], ['scanner', 'Scanner', 'search']] as const).map(([k, label, icon]) => (
+        {([['backtest', 'Backtest', 'zap'], ['correlation', 'Correlation', 'swap'], ['volatility', 'Volatility', 'activity'], ['scanner', 'Scanner', 'search']] as const).map(([k, label, icon]) => (
           <Link key={k} to={`/lab?tab=${k}`} className={`lab-tab ${tab === k ? 'active' : ''}`}><Icon name={icon} size={16} /> {label}</Link>
         ))}
       </div>
       <div key={tab} className="fade-up">
         {tab === 'backtest' && <Backtest />}
         {tab === 'correlation' && <Correlation />}
+        {tab === 'volatility' && <Volatility />}
         {tab === 'scanner' && <Scanner />}
       </div>
     </div>

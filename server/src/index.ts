@@ -2,7 +2,8 @@ import cors from 'cors'
 import express, { type NextFunction, type Request, type Response } from 'express'
 import { OAuth2Client } from 'google-auth-library'
 import { agentApi } from './agent-api.ts'
-import { runBacktest, scanner, STRATEGY_TEMPLATES } from './backtest.ts'
+import { eventCurveFor, microstructure, portfolioRisk, volatilityRanking, volCone } from './analytics.ts'
+import { runBacktest, runSweep, scanner, STRATEGY_TEMPLATES, sweepableParams } from './backtest.ts'
 import { HOUSE_USER, rebuildBooks, settleMarket, sweepMirrorOrders } from './engine.ts'
 import { startHouse } from './house.ts'
 import { leagueAdmin, publicUser } from './leagues.ts'
@@ -261,6 +262,22 @@ app.post('/api/backtest', wrap((req) => {
   return runBacktest(req.body ?? {})
 }))
 app.get('/api/quant/scanner', wrap(() => scanner()))
+app.post('/api/backtest/sweep', wrap((req) => {
+  requireAuth(req)
+  return runSweep(req.body ?? {})
+}))
+app.post('/api/backtest/params', wrap((req) => sweepableParams(String(req.body?.code ?? ''))))
+app.get('/api/quant/volatility', wrap((req) => volatilityRanking(Number(req.query.limit) || 30)))
+app.get('/api/markets/:mid/volcone', wrap((req) => volCone(String(req.params.mid))))
+app.get('/api/markets/:mid/microstructure', wrap((req) => {
+  const leagueId = req.query.league ? String(req.query.league) : undefined
+  return microstructure(leagueId ? requireAuth(req).user.id : (authenticate(req)?.user.id ?? ''), String(req.params.mid), leagueId)
+}))
+app.get('/api/events/:slug/curve', wrap((req) => {
+  const leagueId = req.query.league ? String(req.query.league) : undefined
+  return eventCurveFor(leagueId ? requireAuth(req).user.id : (authenticate(req)?.user.id ?? ''), String(req.params.slug), leagueId)
+}))
+app.get('/api/leagues/:id/risk', wrap((req) => portfolioRisk(String(req.params.id), requireAuth(req).user.id)))
 
 /* ---------------- perps ---------------- */
 
