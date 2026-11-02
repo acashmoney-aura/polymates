@@ -5,10 +5,11 @@ import { agentApi } from './agent-api.ts'
 import { eventCurveFor, microstructure, portfolioRisk, volatilityRanking, volCone } from './analytics.ts'
 import { runBacktest, runSweep, scanner, STRATEGY_TEMPLATES, sweepableParams } from './backtest.ts'
 import { HOUSE_USER, rebuildBooks, settleMarket, sweepMirrorOrders } from './engine.ts'
+import { recordEquitySnapshots, registerPnlSource } from './leaderboard.ts'
 import { startHouse } from './house.ts'
 import { leagueAdmin, publicUser } from './leagues.ts'
 import { handleMcp } from './mcp.ts'
-import { getPerpAsset, listPerpAssets, perpsApi, setTestPrice, startPerps } from './perps.ts'
+import { getPerpAsset, listPerpAssets, perpPnlSource, perpsApi, setTestPrice, startPerps } from './perps.ts'
 import { electionsOverview } from './elections.ts'
 import { catalog, marketById, pmHistory, refreshMarkets, syncCatalog } from './polymarket.ts'
 import { createScript, deleteScript, listScripts, scriptLogsFor, updateScript } from './script-api.ts'
@@ -16,13 +17,15 @@ import { EXAMPLE_SCRIPT, runScript, startScheduler } from './scripts.ts'
 import { db, flush, initState, markDirty, memberKey } from './state.ts'
 import type { OrderSource, User } from './types.ts'
 import {
-  bus, type BusEvent, fail, hashPassword, HttpError, id, now, randomToken, sha256, verifyPassword,
+  bus, type BusEvent, clock, fail, hashPassword, HttpError, id, now, randomToken, sha256, verifyPassword,
 } from './util.ts'
 
 const app = express()
 app.set('trust proxy', true)
 app.use(cors({ origin: true, credentials: false, exposedHeaders: ['Mcp-Session-Id'] }))
 app.use(express.json({ limit: '256kb' }))
+
+const str = (x: unknown) => (typeof x === 'string' && x ? x : undefined)
 
 type Handler = (req: Request, res: Response) => unknown
 const wrap = (fn: Handler) => async (req: Request, res: Response, next: NextFunction) => {
@@ -205,7 +208,19 @@ app.delete('/api/leagues/:id/members/:userId', wrap((req) => admin(req).removeMe
 app.post('/api/leagues/:id/events/:eventId', wrap((req) => admin(req).setEventEnabled(lid(req), String(req.params.eventId), Boolean(req.body?.enabled))))
 app.post('/api/leagues/:id/markets/:marketId', wrap((req) => admin(req).setMarketEnabled(lid(req), String(req.params.marketId), Boolean(req.body?.enabled))))
 
-app.get('/api/leagues/:id/leaderboard', wrap((req) => agentApi(requireAuth(req).user.id, 'web').getLeaderboard(String(req.params.id))))
+app.get('/api/leagues/:id/leaderboard', wrap((req) => agentApi(requireAuth(req).user.id, 'web').getLeaderboard(String(req.params.id), {
+  period: req.query.period, sort: req.query.sort, category: str(req.query.category), source: str(req.query.source),
+})))
+app.get('/api/leagues/:id/leaderboard/chart', wrap((req) => agentApi(requireAuth(req).user.id, 'web').getLeaderboardChart(String(req.params.id), {
+  period: req.query.period, sort: req.query.sort, category: str(req.query.category),
+  users: str(req.query.users)?.split(','), limit: Number(req.query.limit) || undefined,
+})))
+app.get('/api/leagues/:id/leaderboard/sources', wrap((req) => agentApi(requireAuth(req).user.id, 'web').leaderboardSources()))
+app.get('/api/leagues/:id/biggest-wins', wrap((req) => agentApi(requireAuth(req).user.id, 'web').getBiggestWins(String(req.params.id), {
+  period: req.query.period, category: str(req.query.category), limit: Number(req.query.limit) || undefined,
+})))
+app.get('/api/leagues/:id/members/:userId/profile', wrap((req) =>
+  agentApi(requireAuth(req).user.id, 'web').getMemberProfile(String(req.params.userId), String(req.params.id), { period: req.query.period })))
 app.get('/api/leagues/:id/portfolio', wrap((req) => agentApi(requireAuth(req).user.id, 'web').getPortfolio(String(req.params.id))))
 app.get('/api/leagues/:id/orders', wrap((req) =>
   agentApi(requireAuth(req).user.id, 'web').listOrders(String(req.params.id), req.query.status === 'all' ? 'all' : 'open')))
@@ -409,6 +424,28 @@ app.delete('/mcp', (_req, res) => res.status(405).set('Allow', 'POST').end())
 
 /* ---------------- misc ---------------- */
 
+/* ---------------- dev tools (DEV_TOOLS=1 only: tests and seed data) ---------------- */
+
+if (process.env.DEV_TOOLS === '1') {
+  console.log('[dev] DEV_TOOLS enabled: /api/dev/* can shift the clock and settle markets')
+  app.post('/api/dev/clock', wrap((req) => {
+    clock.offsetMs = Number(req.body?.offsetMs) || 0
+    return { offsetMs: clock.offsetMs, now: now() }
+  }))
+  app.post('/api/dev/snapshot', wrap(() => {
+    recordEquitySnapshots()
+    return { ok: true, members: db.equity.size }
+  }))
+  /** pretend Polymarket resolved a market and settle it in every league */
+  app.post('/api/dev/settle', wrap(async (req) => {
+    const m = (await marketById(String(req.body?.marketId ?? ''))) ?? fail(404, 'Market not found')
+    const yes = req.body?.outcome === 'no' ? 0 : 1
+    m.resolved = true
+    m.payout = [yes, 1 - yes]
+    return { settled: settleMarket(m) }
+  }))
+}
+
 app.get(['/', '/api', '/healthz'], (_req, res) => {
   res.json({
     name: 'polymates-api',
@@ -465,11 +502,14 @@ async function main() {
   app.listen(port, () => console.log(`[polymates] listening on :${port}`))
   await syncCatalog()
   await resolveMarkets().catch((err) => console.error('[resolve]', err))
+  recordEquitySnapshots()
   every(90_000, syncCatalog)
   every(60_000, resolveMarkets)
   every(8_000, sweepMirrorOrders)
+  every(10 * 60_000, async () => recordEquitySnapshots())
   startHouse()
   startScheduler()
+  registerPnlSource(perpPnlSource)
   startPerps()
 }
 

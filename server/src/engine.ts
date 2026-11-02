@@ -196,6 +196,7 @@ function recordTrade(taker: Order, maker: Order | null, q: number, yp: number) {
     makerUserId: maker?.userId ?? null,
     takerSide: taker.side,
     takerOutcome: taker.outcome,
+    ...(maker ? { makerSide: maker.side, makerOutcome: maker.outcome } : {}),
     ts: now(),
   }
   db.trades.push(t)
@@ -524,33 +525,7 @@ export function portfolio(leagueId: string, userId: string) {
   }
 }
 
-export function leaderboard(leagueId: string) {
-  const league = db.leagues.get(leagueId) ?? fail(404, 'League not found')
-  const rows = []
-  for (const m of db.members.values()) {
-    if (m.leagueId !== leagueId || m.userId === HOUSE_USER) continue
-    const u = db.users.get(m.userId)
-    const pf = portfolio(leagueId, m.userId)
-    const vol = db.trades
-      .filter((t) => t.leagueId === leagueId && (t.takerUserId === m.userId || t.makerUserId === m.userId))
-      .reduce((s, t) => s + t.size * (t.takerOutcome === 'yes' ? t.yesPrice : 1 - t.yesPrice), 0)
-    rows.push({
-      userId: m.userId,
-      username: u?.username ?? '?',
-      displayName: u?.displayName ?? '?',
-      avatarHue: u?.avatarHue ?? 200,
-      value: pf.value,
-      cash: pf.cash,
-      pnl: pf.pnl,
-      pnlPct: league.startingBalance ? pf.pnl / league.startingBalance : 0,
-      volume: money(vol),
-      positions: pf.positions.length + pf.perps.length,
-      bots: [...db.scripts.values()].filter((s) => s.userId === m.userId && s.leagueId === leagueId && s.enabled).length,
-    })
-  }
-  rows.sort((a, b) => b.pnl - a.pnl)
-  return rows.map((r, i) => ({ rank: i + 1, ...r }))
-}
+// The league leaderboard lives in leaderboard.ts (periods, sorting, other P&L sources via registerPnlSource).
 
 export function logActivity(leagueId: string, userId: string, kind: Activity['kind'], text: string, marketId?: string) {
   db.activity.push({ id: id('act'), leagueId, userId, kind, text, marketId, ts: now() })

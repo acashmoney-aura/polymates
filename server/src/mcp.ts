@@ -135,7 +135,25 @@ function build(userId: string) {
   tool('list_trades', 'Recent fills in the league (optionally yours only / one market).', {
     market_id: z.string().optional(), mine: z.boolean().optional(), limit: z.number().int().max(200).optional(), league_id: leagueId,
   }, (a) => api.listTrades(a.league_id, { marketId: a.market_id, mine: a.mine, limit: a.limit }))
-  tool('get_leaderboard', 'League standings by P&L.', { league_id: leagueId }, (a) => api.getLeaderboard(a.league_id))
+  const period = z.enum(['day', 'week', 'month', 'all'])
+  const category = z.string().optional().describe('Polymarket category tag slug, e.g. "politics", "sports", "crypto" (prediction markets only)')
+  tool('get_leaderboard', 'League standings over a period. Each row: rank, pnl, pnlPct (return), volume, trades, winRate on resolved markets, bestTrade, current streak and a per-source breakdown. Bots and scripts count toward their owner.', {
+    league_id: leagueId,
+    period: period.default('all').describe('day = last 24h, week = 7 days, month = 30 days, all = whole season'),
+    sort: z.enum(['pnl', 'volume', 'return']).default('pnl'),
+    category,
+  }, (a) => api.getLeaderboard(a.league_id, { period: a.period, sort: a.sort, category: a.category }))
+  tool('get_biggest_wins', 'Largest winning closed positions in the league over a period: who, which market, and cost -> payout.', {
+    league_id: leagueId,
+    period: period.default('month'),
+    category,
+    limit: z.number().int().min(1).max(50).default(10),
+  }, (a) => api.getBiggestWins(a.league_id, { period: a.period, category: a.category, limit: a.limit }))
+  tool('get_member_profile', 'A league member\'s stats for a period plus their open positions, recent trades and closed positions.', {
+    member: z.string().describe('Member username or user id'),
+    league_id: leagueId,
+    period: period.default('all'),
+  }, (a) => api.getMemberProfile(a.member, a.league_id, { period: a.period }))
 
   tool('get_price_history', 'Polymarket YES price history for a market: [{t (unix s), p (0..1)}].', {
     market_id: z.string(), range: z.enum(['1h', '6h', '1d', '1w', '1m', 'all']).default('1w'), n: z.number().int().min(1).max(5000).default(200),

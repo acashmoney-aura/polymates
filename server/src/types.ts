@@ -57,6 +57,7 @@ export interface League {
   description?: string
   /** bumps every time the owner restarts the league from scratch */
   season?: number
+  seasonStartedAt?: number
 }
 
 export interface Member {
@@ -112,6 +113,9 @@ export interface Trade {
   makerUserId: string | null
   takerSide: Side
   takerOutcome: Outcome
+  /** recorded since leaderboards; older trades look the maker order up */
+  makerSide?: Side
+  makerOutcome?: Outcome
   ts: number
 }
 
@@ -142,6 +146,12 @@ export interface Settlement {
   marketId: string
   payout: [number, number]
   ts: number
+}
+
+/** a member's prediction-market P&L since they joined (or the season began), sampled for leaderboard charts */
+export interface EquityPoint {
+  ts: number
+  pnl: number
 }
 
 export interface Activity {

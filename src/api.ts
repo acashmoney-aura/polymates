@@ -49,9 +49,32 @@ export interface TradeRow {
   title: string; eventSlug: string | null; image: string; outcomeLabel: string; price: number; mine: boolean
   taker: { username: string; displayName: string; avatarHue: number } | null
 }
+export type LeaderPeriod = 'day' | 'week' | 'month' | 'all'
+export type LeaderSort = 'pnl' | 'volume' | 'return'
+export interface ClosedTrade {
+  marketId: string; title: string; question: string; eventTitle: string | null; eventSlug: string | null; image: string
+  outcome: 'yes' | 'no'; outcomeLabel: string; cost: number; payout: number; pnl: number; openedAt: number; closedAt: number; settled: boolean
+}
 export interface LeaderRow {
-  rank: number; userId: string; username: string; displayName: string; avatarHue: number; value: number; cash: number
+  rank: number; userId: string; username: string; displayName: string; avatarHue: number; avatarUrl?: string; value: number; cash: number
   pnl: number; pnlPct: number; volume: number; positions: number; bots: number
+  period?: LeaderPeriod; role?: 'owner' | 'admin' | 'member'; trades?: number; wins?: number; losses?: number; winRate?: number | null
+  bestTrade?: ClosedTrade | null; streak?: { kind: 'win' | 'loss'; count: number } | null
+  breakdown?: Record<string, { pnl: number; volume: number; trades: number }>
+}
+export interface BiggestWin extends ClosedTrade {
+  rank: number; userId: string; username: string; displayName: string; avatarHue: number; avatarUrl?: string
+}
+export interface LeaderChart {
+  period: LeaderPeriod; t: number[]
+  series: { userId: string; username: string; displayName: string; avatarHue: number; avatarUrl?: string; values: number[] }[]
+}
+export interface MemberProfile extends Omit<LeaderRow, 'positions' | 'trades'> {
+  tradeCount: number; joinedAt: number; startingBalance: number; allTimePnl: number; realized: number; positionsValue: number
+  positions: PositionRow[]
+  trades: { marketId: string; title: string; eventSlug: string | null; image: string; outcome: 'yes' | 'no'; outcomeLabel: string; side: 'buy' | 'sell'; price: number; size: number; value: number; ts: number }[]
+  closed: ClosedTrade[]
+  chart: LeaderChart
 }
 export interface ActivityRow {
   id: string; kind: string; text: string; ts: number; user: User | null; eventSlug?: string | null; image?: string | null

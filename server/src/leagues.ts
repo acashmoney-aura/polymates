@@ -257,6 +257,8 @@ export function leagueAdmin(userId: string) {
       db.trades = db.trades.filter((t) => t.leagueId !== league.id)
       for (const m of db.members.values()) if (m.leagueId === league.id && m.userId !== HOUSE_USER) m.cash = league.startingBalance
       league.season = (league.season ?? 1) + 1
+      league.seasonStartedAt = now()
+      for (const k of db.equity.keys()) if (k.startsWith(`${league.id}:`)) db.equity.delete(k)
       rebuildBooks()
       logActivity(league.id, userId, 'admin', `${user().displayName} started season ${league.season}. Everyone is back to the starting balance.`)
       changed(league)
@@ -281,6 +283,7 @@ function deleteLeague(league: League) {
   for (const [k, s] of db.scripts) if (s.leagueId === lid) db.scripts.delete(k)
   db.trades = db.trades.filter((t) => t.leagueId !== lid)
   db.activity = db.activity.filter((a) => a.leagueId !== lid)
+  for (const k of db.equity.keys()) if (k.startsWith(`${lid}:`)) db.equity.delete(k)
   db.leagues.delete(lid)
   rebuildBooks()
   markDirty()

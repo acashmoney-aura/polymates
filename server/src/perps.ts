@@ -1,3 +1,4 @@
+import type { PnlSource } from './leaderboard.ts'
 import { db, markDirty, memberKey } from './state.ts'
 import type { Activity, OrderSource, PerpPosition, PerpSide } from './types.ts'
 import { emit, fail, fetchJson, id, money, now } from './util.ts'
@@ -576,4 +577,25 @@ export function setTestPrice(symbol: string, price: number | null) {
 /** League housekeeping: drop perps for a member who leaves or a league that resets. */
 export function clearPerps(leagueId: string, userId?: string) {
   for (const [k, p] of db.perps) if (p.leagueId === leagueId && (!userId || p.userId === userId)) db.perps.delete(k)
+}
+
+/** Perp P&L for the league leaderboard: realized on positions closed since `since`, plus open positions marked to market (net of funding and fees). */
+export const perpPnlSource: PnlSource = {
+  key: 'perps',
+  label: 'Perps',
+  member(league, userId, since) {
+    let pnl = 0, volume = 0, trades = 0
+    for (const p of db.perps.values()) {
+      if (p.leagueId !== league.id || p.userId !== userId) continue
+      if (p.openedAt >= since) { volume += p.qty * p.entryPrice; trades++ }
+      if (p.status === 'open') {
+        pnl += serializePerp(p).equity - p.margin - p.openFee
+      } else if ((p.closedAt ?? 0) >= since) {
+        pnl += p.realized ?? 0
+        volume += p.qty * (p.exitPrice ?? p.entryPrice)
+        trades++
+      }
+    }
+    return { pnl: money(pnl), volume: money(volume), trades }
+  },
 }
