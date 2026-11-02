@@ -3,6 +3,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import type { Request, Response } from 'express'
 import { z } from 'zod'
 import { agentApi } from './agent-api.ts'
+import { leagueAdmin } from './leagues.ts'
 import { runBacktest, scanner, STRATEGY_TEMPLATES } from './backtest.ts'
 import { createScript, deleteScript, listScripts, scriptLogsFor, updateScript } from './script-api.ts'
 import { runScript } from './scripts.ts'
@@ -13,7 +14,9 @@ Markets are real Polymarket markets and resolve exactly as Polymarket resolves t
 Each league is either "mirror" (orders fill against Polymarket's live order book) or "exchange" (the league runs its own order book; you trade with other members).
 Prices are probabilities in dollars per share (0.42 = 42¢); a winning share pays $1.
 Typical flow: list_leagues -> search_markets -> get_order_book -> place_order -> get_portfolio.
-Omit league_id to use your first league.`
+Omit league_id to use your first league.
+League management: create_league, join_league, get_league, update_league, set_event_enabled / set_market_enabled, set_member_role, remove_member, transfer_ownership, leave_league, reset_season, delete_league.
+The owner can do everything; admins can change settings, switch markets and remove members. reset_season and delete_league need confirm = the exact league name; always ask the user before calling them.`
 
 const text = (data: unknown) => ({ content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] })
 const leagueId = z.string().optional().describe('League id (default: your first league)')
@@ -37,6 +40,52 @@ function build(userId: string) {
 
   tool('whoami', 'Your account and the leagues you belong to.', {}, () => api.whoami())
   tool('list_leagues', 'Leagues you belong to, with mode (mirror/exchange) and cash.', {}, () => api.listLeagues())
+
+  /* ---- league management ---- */
+  const admin = leagueAdmin(userId)
+  const lid = (x?: string) => x ?? api.listLeagues()[0]?.id ?? ''
+  const member = z.string().describe('Member username (e.g. "maya") or user id')
+  tool('create_league', 'Create a new league; you become its owner. Returns the league with its invite code.', {
+    name: z.string().min(1).max(60),
+    mode: z.enum(['mirror', 'exchange']).default('mirror').describe('mirror: fill against live Polymarket book; exchange: league runs its own order book'),
+    starting_balance: z.number().min(100).max(10_000_000).default(10_000),
+    market_scope: z.enum(['all', 'curated']).default('all').describe('all: every Polymarket market tradable; curated: only events you switch on'),
+    house_liquidity: z.boolean().default(true).describe('exchange mode only: house market maker quotes around the Polymarket price'),
+    description: z.string().max(280).optional(),
+  }, (a) => admin.create({ name: a.name, mode: a.mode, startingBalance: a.starting_balance, marketScope: a.market_scope, houseLiquidity: a.house_liquidity, description: a.description }))
+  tool('join_league', 'Join a league with an invite code.', { invite_code: z.string() }, (a) => admin.join(a.invite_code))
+  tool('get_league', 'League settings, invite code, your role and the member list with roles.', { league_id: leagueId }, (a) => admin.get(lid(a.league_id)))
+  tool('update_league', 'Admins: change the name, description, market scope, house liquidity or starting balance (applies to new joiners and the next season), or regenerate the invite code.', {
+    league_id: leagueId,
+    name: z.string().max(60).optional(),
+    description: z.string().max(280).optional(),
+    market_scope: z.enum(['all', 'curated']).optional(),
+    house_liquidity: z.boolean().optional(),
+    starting_balance: z.number().min(100).max(10_000_000).optional(),
+    regenerate_invite: z.boolean().optional(),
+  }, (a) => admin.update(lid(a.league_id), { name: a.name, description: a.description, marketScope: a.market_scope, houseLiquidity: a.house_liquidity, startingBalance: a.starting_balance, regenerateInvite: a.regenerate_invite }))
+  tool('set_event_enabled', 'Admins: turn a whole event (all its outcomes) on or off for the league. Use search_markets to find the event id.', {
+    event_id: z.string(), enabled: z.boolean(), league_id: leagueId,
+  }, (a) => admin.setEventEnabled(lid(a.league_id), a.event_id, a.enabled))
+  tool('set_market_enabled', 'Admins: turn one outcome market on or off for the league.', {
+    market_id: z.string(), enabled: z.boolean(), league_id: leagueId,
+  }, (a) => admin.setMarketEnabled(lid(a.league_id), a.market_id, a.enabled))
+  tool('set_member_role', 'Owner: make a member an admin, or an admin a member.', { member, role: z.enum(['admin', 'member']), league_id: leagueId },
+    (a) => admin.setRole(lid(a.league_id), a.member, a.role))
+  tool('remove_member', 'Admins: remove someone with a lower role from the league. Cancels their orders and clears their positions.', { member, league_id: leagueId },
+    (a) => admin.removeMember(lid(a.league_id), a.member))
+  tool('transfer_ownership', 'Owner: hand the league to another member. You become an admin.', { member, league_id: leagueId },
+    (a) => admin.transferOwnership(lid(a.league_id), a.member))
+  tool('leave_league', 'Leave a league. Cancels your orders and clears your positions there. An owner must transfer ownership first unless they are the only member.', {
+    league_id: z.string(),
+  }, (a) => admin.leave(a.league_id))
+  tool('reset_season', 'Owner: start a new season. Cancels all orders, clears positions and trades, and resets everyone to the starting balance. Ask the user first.', {
+    league_id: z.string(), confirm: z.string().describe('The exact league name'),
+  }, (a) => admin.resetSeason(a.league_id, a.confirm))
+  tool('delete_league', 'Owner: permanently delete a league and all its data. Ask the user first.', {
+    league_id: z.string(), confirm: z.string().describe('The exact league name'),
+  }, (a) => admin.delete(a.league_id, a.confirm))
+
   tool(
     'search_markets',
     'Search tradable events. Returns events with their binary markets (market id, title, YES price 0..1, best bid/ask, volume).',

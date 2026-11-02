@@ -1,17 +1,19 @@
 import cors from 'cors'
 import express, { type NextFunction, type Request, type Response } from 'express'
+import { OAuth2Client } from 'google-auth-library'
 import { agentApi } from './agent-api.ts'
 import { runBacktest, scanner, STRATEGY_TEMPLATES } from './backtest.ts'
-import { HOUSE_USER, logActivity, rebuildBooks, settleMarket, sweepMirrorOrders } from './engine.ts'
+import { HOUSE_USER, rebuildBooks, settleMarket, sweepMirrorOrders } from './engine.ts'
 import { startHouse } from './house.ts'
+import { leagueAdmin, publicUser } from './leagues.ts'
 import { handleMcp } from './mcp.ts'
-import { catalog, eventById, marketById, pmHistory, refreshMarkets, syncCatalog } from './polymarket.ts'
+import { catalog, marketById, pmHistory, refreshMarkets, syncCatalog } from './polymarket.ts'
 import { createScript, deleteScript, listScripts, scriptLogsFor, updateScript } from './script-api.ts'
 import { EXAMPLE_SCRIPT, runScript, startScheduler } from './scripts.ts'
 import { db, flush, initState, markDirty, memberKey } from './state.ts'
-import type { League, OrderSource, User } from './types.ts'
+import type { OrderSource, User } from './types.ts'
 import {
-  bus, type BusEvent, fail, hashPassword, HttpError, id, inviteCode, now, randomToken, sha256, verifyPassword,
+  bus, type BusEvent, fail, hashPassword, HttpError, id, now, randomToken, sha256, verifyPassword,
 } from './util.ts'
 
 const app = express()
@@ -53,11 +55,31 @@ function authenticate(req: Request): Authed | null {
   return user ? { user, source: 'web' } : null
 }
 
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID ?? ''
+const googleClient = new OAuth2Client()
+
+async function verifyGoogleToken(credential: string) {
+  if (!GOOGLE_CLIENT_ID) fail(503, 'Google sign-in is not configured on this server')
+  if (!credential) fail(400, 'Missing Google credential')
+  try {
+    const ticket = await googleClient.verifyIdToken({ idToken: credential, audience: GOOGLE_CLIENT_ID })
+    const p = ticket.getPayload()
+    if (!p?.sub) throw new Error('no subject')
+    return { sub: p.sub, email: p.email_verified ? p.email : undefined, name: p.name, picture: p.picture }
+  } catch {
+    return fail(401, 'Google sign-in failed. Try again.')
+  }
+}
+
+function uniqueUsername(seed: string) {
+  const base = seed.split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 16).padEnd(3, '0')
+  const taken = new Set([...db.users.values()].map((u) => u.username))
+  if (!taken.has(base)) return base
+  for (let i = 2; ; i++) if (!taken.has(`${base}${i}`)) return `${base}${i}`
+}
+
 const requireAuth = (req: Request) => authenticate(req) ?? fail(401, 'Sign in or pass an API key as "Authorization: Bearer pm_..."')
 
-function publicUser(u: User) {
-  return { id: u.id, username: u.username, displayName: u.displayName, avatarHue: u.avatarHue, createdAt: u.createdAt }
-}
 
 function newSession(userId: string) {
   const token = randomToken(32)
@@ -85,8 +107,43 @@ app.post('/api/auth/signup', wrap((req) => {
 app.post('/api/auth/login', wrap((req) => {
   const username = String(req.body?.username ?? '').trim().toLowerCase()
   const user = [...db.users.values()].find((u) => u.username === username && u.id !== HOUSE_USER)
+  if (user && !user.passHash) fail(401, 'This account signs in with Google')
   if (!user || !verifyPassword(String(req.body?.password ?? ''), user.salt, user.passHash)) fail(401, 'Wrong username or password')
   return { token: newSession(user!.id), user: publicUser(user!) }
+}))
+
+/** Public client config (the Google client id is not a secret). */
+app.get('/api/config', wrap(() => ({ googleClientId: GOOGLE_CLIENT_ID || null })))
+
+/**
+ * Sign in with Google. The browser gets an ID token from Google Identity Services
+ * and posts it here; we verify it and sign in (or create) the matching account.
+ * If the request already carries a session, the Google account is linked to it.
+ */
+app.post('/api/auth/google', wrap(async (req) => {
+  const profile = await verifyGoogleToken(String(req.body?.credential ?? ''))
+  const current = authenticate(req)
+  const linked = [...db.users.values()].find((u) => u.googleSub === profile.sub)
+  if (current?.source === 'web') {
+    if (linked && linked.id !== current.user.id) fail(409, 'That Google account is already linked to another Polymates user')
+    Object.assign(current.user, { googleSub: profile.sub, email: profile.email, avatarUrl: current.user.avatarUrl ?? profile.picture })
+    markDirty()
+    return { token: (req.headers.authorization ?? '').slice(7), user: publicUser(current.user), linked: true }
+  }
+  let user = linked
+  if (!user) {
+    user = {
+      id: id('usr'), username: uniqueUsername(profile.email ?? profile.name ?? 'player'),
+      displayName: (profile.name || profile.email?.split('@')[0] || 'Player').slice(0, 40),
+      passHash: '', salt: '', avatarHue: Math.floor(Math.random() * 360), createdAt: now(),
+      googleSub: profile.sub, email: profile.email, avatarUrl: profile.picture,
+    }
+    db.users.set(user.id, user)
+  } else if (profile.picture && !user.avatarUrl) {
+    user.avatarUrl = profile.picture
+  }
+  markDirty()
+  return { token: newSession(user.id), user: publicUser(user), created: !linked }
 }))
 
 app.post('/api/auth/logout', wrap((req) => {
@@ -98,7 +155,7 @@ app.post('/api/auth/logout', wrap((req) => {
 
 app.get('/api/me', wrap((req) => {
   const { user } = requireAuth(req)
-  return { user: publicUser(user), leagues: agentApi(user.id, 'web').listLeagues() }
+  return { user: { ...publicUser(user), google: Boolean(user.googleSub), hasPassword: Boolean(user.passHash) }, leagues: agentApi(user.id, 'web').listLeagues() }
 }))
 
 app.get('/api/me/api-keys', wrap((req) => {
@@ -128,121 +185,22 @@ app.delete('/api/me/api-keys/:id', wrap((req) => {
 
 /* ---------------- leagues ---------------- */
 
-function leagueFor(req: Request, userId: string, ownerOnly = false) {
-  const league = db.leagues.get(String(req.params.id)) ?? fail(404, 'League not found')
-  const m = db.members.get(memberKey(league.id, userId)) ?? fail(403, 'Not a member of this league')
-  if (ownerOnly && m.role !== 'owner') fail(403, 'Only the league creator can change settings')
-  return league
-}
+const admin = (req: Request) => leagueAdmin(requireAuth(req).user.id)
+const lid = (req: Request) => String(req.params.id)
 
-function leagueView(league: League) {
-  const members = [...db.members.values()]
-    .filter((m) => m.leagueId === league.id && m.userId !== HOUSE_USER)
-    .map((m) => ({ ...publicUser(db.users.get(m.userId)!), role: m.role, joinedAt: m.joinedAt }))
-  return { ...league, members }
-}
-
-app.post('/api/leagues', wrap((req) => {
-  const { user } = requireAuth(req)
-  const b = req.body ?? {}
-  const mode = b.mode === 'exchange' ? 'exchange' : 'mirror'
-  const startingBalance = Math.min(Math.max(Number(b.startingBalance) || 10_000, 100), 10_000_000)
-  const league: League = {
-    id: id('lg'),
-    name: String(b.name || `${user.displayName}'s league`).slice(0, 60),
-    inviteCode: inviteCode(),
-    mode,
-    startingBalance,
-    ownerId: user.id,
-    createdAt: now(),
-    marketScope: b.marketScope === 'curated' ? 'curated' : 'all',
-    enabledEvents: Array.isArray(b.enabledEvents) ? b.enabledEvents.map(String).slice(0, 500) : [],
-    disabledMarkets: [],
-    houseLiquidity: mode === 'exchange' && b.houseLiquidity !== false,
-  }
-  db.leagues.set(league.id, league)
-  db.members.set(memberKey(league.id, user.id), { leagueId: league.id, userId: user.id, role: 'owner', cash: startingBalance, joinedAt: now() })
-  logActivity(league.id, user.id, 'create', `${user.displayName} created the league`)
-  markDirty()
-  return leagueView(league)
-}))
-
-app.post('/api/leagues/join', wrap((req) => {
-  const { user } = requireAuth(req)
-  const code = String(req.body?.inviteCode ?? '').trim().toUpperCase()
-  const league = [...db.leagues.values()].find((l) => l.inviteCode === code) ?? fail(404, 'No league with that invite code')
-  const k = memberKey(league.id, user.id)
-  if (!db.members.has(k)) {
-    const count = [...db.members.values()].filter((m) => m.leagueId === league.id && m.userId !== HOUSE_USER).length
-    if (count >= 100) fail(400, 'League is full')
-    db.members.set(k, { leagueId: league.id, userId: user.id, role: 'member', cash: league.startingBalance, joinedAt: now() })
-    logActivity(league.id, user.id, 'join', `${user.displayName} joined the league`)
-    markDirty()
-  }
-  return leagueView(league)
-}))
-
-app.get('/api/leagues/invite/:code', wrap((req) => {
-  const league = [...db.leagues.values()].find((l) => l.inviteCode === String(req.params.code).toUpperCase()) ?? fail(404, 'Invite not found')
-  const owner = db.users.get(league.ownerId)
-  return {
-    name: league.name, mode: league.mode, startingBalance: league.startingBalance, owner: owner?.displayName,
-    members: [...db.members.values()].filter((m) => m.leagueId === league.id && m.userId !== HOUSE_USER).length,
-  }
-}))
-
-app.get('/api/leagues/:id', wrap((req) => leagueView(leagueFor(req, requireAuth(req).user.id))))
-
-app.patch('/api/leagues/:id', wrap((req) => {
-  const league = leagueFor(req, requireAuth(req).user.id, true)
-  const b = req.body ?? {}
-  if (b.name !== undefined) league.name = String(b.name).slice(0, 60) || league.name
-  if (b.marketScope === 'all' || b.marketScope === 'curated') league.marketScope = b.marketScope
-  if (b.houseLiquidity !== undefined) league.houseLiquidity = Boolean(b.houseLiquidity) && league.mode === 'exchange'
-  if (b.regenerateInvite) league.inviteCode = inviteCode()
-  markDirty()
-  bus.emit('event', { type: 'league', leagueId: league.id } satisfies BusEvent)
-  return leagueView(league)
-}))
-
-/** Turn a whole event (all its outcome markets) on or off for the league. */
-app.post('/api/leagues/:id/events/:eventId', wrap(async (req) => {
-  const league = leagueFor(req, requireAuth(req).user.id, true)
-  const event = (await eventById(String(req.params.eventId))) ?? fail(404, 'Event not found')
-  const enabled = Boolean(req.body?.enabled)
-  const set = new Set(league.enabledEvents)
-  const disabled = new Set(league.disabledMarkets)
-  if (enabled) {
-    set.add(event.id)
-    for (const mid of event.marketIds) disabled.delete(mid)
-  } else {
-    set.delete(event.id)
-    if (league.marketScope === 'all') for (const mid of event.marketIds) disabled.add(mid)
-  }
-  league.enabledEvents = [...set]
-  league.disabledMarkets = [...disabled]
-  markDirty()
-  bus.emit('event', { type: 'league', leagueId: league.id } satisfies BusEvent)
-  return leagueView(league)
-}))
-
-/** Turn a single outcome market on or off. */
-app.post('/api/leagues/:id/markets/:marketId', wrap(async (req) => {
-  const league = leagueFor(req, requireAuth(req).user.id, true)
-  const market = (await marketById(String(req.params.marketId))) ?? fail(404, 'Market not found')
-  const enabled = Boolean(req.body?.enabled)
-  const disabled = new Set(league.disabledMarkets)
-  if (enabled) {
-    disabled.delete(market.id)
-    if (league.marketScope === 'curated' && !league.enabledEvents.includes(market.eventId)) league.enabledEvents.push(market.eventId)
-  } else {
-    disabled.add(market.id)
-  }
-  league.disabledMarkets = [...disabled]
-  markDirty()
-  bus.emit('event', { type: 'league', leagueId: league.id } satisfies BusEvent)
-  return leagueView(league)
-}))
+app.post('/api/leagues', wrap((req) => admin(req).create(req.body ?? {})))
+app.post('/api/leagues/join', wrap((req) => admin(req).join(String(req.body?.inviteCode ?? ''))))
+app.get('/api/leagues/invite/:code', wrap((req) => leagueAdmin('').preview(String(req.params.code))))
+app.get('/api/leagues/:id', wrap((req) => admin(req).get(lid(req))))
+app.patch('/api/leagues/:id', wrap((req) => admin(req).update(lid(req), req.body ?? {})))
+app.delete('/api/leagues/:id', wrap((req) => admin(req).delete(lid(req), String(req.body?.confirm ?? req.query.confirm ?? ''))))
+app.post('/api/leagues/:id/leave', wrap((req) => admin(req).leave(lid(req))))
+app.post('/api/leagues/:id/reset', wrap((req) => admin(req).resetSeason(lid(req), String(req.body?.confirm ?? ''))))
+app.post('/api/leagues/:id/transfer', wrap((req) => admin(req).transferOwnership(lid(req), String(req.body?.userId ?? ''))))
+app.patch('/api/leagues/:id/members/:userId', wrap((req) => admin(req).setRole(lid(req), String(req.params.userId), req.body?.role)))
+app.delete('/api/leagues/:id/members/:userId', wrap((req) => admin(req).removeMember(lid(req), String(req.params.userId))))
+app.post('/api/leagues/:id/events/:eventId', wrap((req) => admin(req).setEventEnabled(lid(req), String(req.params.eventId), Boolean(req.body?.enabled))))
+app.post('/api/leagues/:id/markets/:marketId', wrap((req) => admin(req).setMarketEnabled(lid(req), String(req.params.marketId), Boolean(req.body?.enabled))))
 
 app.get('/api/leagues/:id/leaderboard', wrap((req) => agentApi(requireAuth(req).user.id, 'web').getLeaderboard(String(req.params.id))))
 app.get('/api/leagues/:id/portfolio', wrap((req) => agentApi(requireAuth(req).user.id, 'web').getPortfolio(String(req.params.id))))
@@ -255,7 +213,7 @@ app.get('/api/leagues/:id/trades', wrap((req) =>
     limit: req.query.limit ? Number(req.query.limit) : undefined,
   })))
 app.get('/api/leagues/:id/activity', wrap((req) => {
-  const league = leagueFor(req, requireAuth(req).user.id)
+  const league = admin(req).get(lid(req))
   return db.activity.filter((a) => a.leagueId === league.id).slice(-100).reverse().map((a) => {
     const u = db.users.get(a.userId)
     const m = a.marketId ? catalog.markets.get(a.marketId) : undefined

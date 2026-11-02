@@ -1,6 +1,6 @@
 import { catalog, displayPrice, marketById, pmBook } from './polymarket.ts'
 import { db, markDirty, memberKey, positionKey, settlementKey } from './state.ts'
-import type { Book, League, Order, OrderSource, OrderType, Outcome, PMMarket, Position, Side, Trade } from './types.ts'
+import type { Activity, Book, League, Order, OrderSource, OrderType, Outcome, PMMarket, Position, Side, Trade } from './types.ts'
 import { emit, fail, id, money, now, px, shares } from './util.ts'
 
 /* ------------------------------------------------------------------
@@ -548,7 +548,7 @@ export function leaderboard(leagueId: string) {
   return rows.map((r, i) => ({ rank: i + 1, ...r }))
 }
 
-export function logActivity(leagueId: string, userId: string, kind: 'trade' | 'join' | 'resolve' | 'create', text: string, marketId?: string) {
+export function logActivity(leagueId: string, userId: string, kind: Activity['kind'], text: string, marketId?: string) {
   db.activity.push({ id: id('act'), leagueId, userId, kind, text, marketId, ts: now() })
   emit({ type: 'activity', leagueId })
 }

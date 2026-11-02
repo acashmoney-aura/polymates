@@ -8,10 +8,14 @@ export interface User {
   id: string
   username: string
   displayName: string
+  /** empty for accounts that only sign in with Google */
   passHash: string
   salt: string
   avatarHue: number
   createdAt: number
+  googleSub?: string
+  email?: string
+  avatarUrl?: string
 }
 
 export interface Session {
@@ -50,12 +54,16 @@ export interface League {
   disabledMarkets: string[]
   /** exchange mode: a house bot quotes around the Polymarket price so books are never empty */
   houseLiquidity: boolean
+  description?: string
+  /** bumps every time the owner restarts the league from scratch */
+  season?: number
 }
 
 export interface Member {
   leagueId: string
   userId: string
-  role: 'owner' | 'member'
+  /** owner: everything; admin: settings, markets and members; member: trade */
+  role: 'owner' | 'admin' | 'member'
   cash: number
   joinedAt: number
 }
@@ -140,7 +148,7 @@ export interface Activity {
   id: string
   leagueId: string
   userId: string
-  kind: 'trade' | 'join' | 'resolve' | 'create'
+  kind: 'trade' | 'join' | 'resolve' | 'create' | 'admin'
   text: string
   marketId?: string
   ts: number

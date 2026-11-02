@@ -25,7 +25,7 @@ gcloud run deploy "$SERVICE" \
   --min-instances 1 --max-instances 1 \
   --no-cpu-throttling --cpu 1 --memory 1Gi \
   --timeout 3600 \
-  --set-env-vars "STATE_BUCKET=${BUCKET}" \
+  --set-env-vars "STATE_BUCKET=${BUCKET}${GOOGLE_CLIENT_ID:+,GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}}" \
   --quiet
 
 URL="$(gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" --format 'value(status.url)')"

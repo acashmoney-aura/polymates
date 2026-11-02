@@ -37,19 +37,29 @@ Send either as `Authorization: Bearer <token>`. API keys act as you in every lea
 |---|---|---|---|
 | POST | `/api/auth/signup` | `{username, password, displayName?}` | `{token, user}` |
 | POST | `/api/auth/login` | `{username, password}` | `{token, user}` |
+| POST | `/api/auth/google` | `{credential}` (Google Identity Services ID token) | `{token, user, created}`; with a session it links Google to that account |
+| GET | `/api/config` | | `{googleClientId}` (null when Google sign-in is off) |
 | GET | `/api/me` | | `{user, leagues[]}` |
 | GET/POST/DELETE | `/api/me/api-keys[/:id]` | `{name}` | keys (the secret is returned once, on create) |
 
 ### Leagues
-| Method | Path | Notes |
-|---|---|---|
-| POST | `/api/leagues` | `{name, mode: 'mirror'\|'exchange', startingBalance, marketScope: 'all'\|'curated', houseLiquidity}` |
-| POST | `/api/leagues/join` | `{inviteCode}` |
-| GET | `/api/leagues/invite/:code` | public preview |
-| GET | `/api/leagues/:id` | settings + members |
-| PATCH | `/api/leagues/:id` | owner: `{name?, marketScope?, houseLiquidity?, regenerateInvite?}` |
-| POST | `/api/leagues/:id/events/:eventId` | owner: `{enabled}`; turns a whole event on or off |
-| POST | `/api/leagues/:id/markets/:marketId` | owner: `{enabled}`; turns one outcome market on or off |
+Roles: the **owner** can do everything; **admins** can change settings, switch markets and remove members; **members** trade.
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| POST | `/api/leagues` | anyone | `{name, mode: 'mirror'\|'exchange', startingBalance, marketScope: 'all'\|'curated', houseLiquidity, description}` |
+| POST | `/api/leagues/join` | anyone | `{inviteCode}` |
+| GET | `/api/leagues/invite/:code` | public | preview |
+| GET | `/api/leagues/:id` | member | settings, `season`, `myRole`, members with roles |
+| PATCH | `/api/leagues/:id` | admin | `{name?, description?, marketScope?, houseLiquidity?, startingBalance?, regenerateInvite?}` |
+| POST | `/api/leagues/:id/events/:eventId` | admin | `{enabled}`; turns a whole event on or off |
+| POST | `/api/leagues/:id/markets/:marketId` | admin | `{enabled}`; turns one outcome market on or off |
+| PATCH | `/api/leagues/:id/members/:userId` | owner | `{role: 'admin'\|'member'}` |
+| DELETE | `/api/leagues/:id/members/:userId` | admin | removes someone with a lower role; cancels their orders, clears positions |
+| POST | `/api/leagues/:id/transfer` | owner | `{userId}`; you become an admin |
+| POST | `/api/leagues/:id/leave` | member | an owner must transfer first unless they are the only member |
+| POST | `/api/leagues/:id/reset` | owner | `{confirm: '<league name>'}`; new season: orders, positions and trades cleared, cash reset |
+| DELETE | `/api/leagues/:id` | owner | `{confirm: '<league name>'}`; deletes everything |
 | GET | `/api/leagues/:id/leaderboard` | ranked by P&L |
 | GET | `/api/leagues/:id/activity` | feed |
 
@@ -130,7 +140,7 @@ claude mcp add --transport http polymates https://YOUR-API/mcp --header "Authori
 { "mcpServers": { "polymates": { "url": "https://YOUR-API/mcp", "headers": { "Authorization": "Bearer pm_..." } } } }
 ```
 
-Tools: `whoami, list_leagues, search_markets, get_price_history, scan_markets, list_strategy_templates, run_backtest, get_event, get_market, get_order_book, get_portfolio, place_order, cancel_order, cancel_all_orders, list_orders, list_trades, get_leaderboard, list_scripts, upload_script, run_script, get_script_logs, set_script_enabled, delete_script`. Omit `league_id` to use your first league.
+Tools: `whoami, list_leagues, create_league, join_league, get_league, update_league, set_event_enabled, set_market_enabled, set_member_role, remove_member, transfer_ownership, leave_league, reset_season, delete_league, search_markets, get_price_history, scan_markets, list_strategy_templates, run_backtest, get_event, get_market, get_order_book, get_portfolio, place_order, cancel_order, cancel_all_orders, list_orders, list_trades, get_leaderboard, list_scripts, upload_script, run_script, get_script_logs, set_script_enabled, delete_script`. Omit `league_id` to use your first league.
 
 ## Hosted scripts
 

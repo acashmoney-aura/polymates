@@ -631,3 +631,33 @@ details summary { cursor: pointer; color: var(--text-2); font-size: 14px; margin
   .toasts { top: auto; bottom: 140px; left: 16px; right: 16px; align-items: center; }
   .chips-row > * { font-size: 14px; }
 }
+
+/* ---------- Google sign-in ---------- */
+.google-btn { display: flex; justify-content: center; min-height: 44px; margin-top: 16px; }
+.or-divider { display: flex; align-items: center; gap: 12px; margin: 14px 0 2px; color: var(--text-4); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+.or-divider::before, .or-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+/* ---------- league management ---------- */
+.league-desc { margin: 8px 0 4px; font-size: 15px; color: var(--text-strong); }
+.tag.role-owner { background: #fdc50322; color: #fdc503; }
+.tag.role-admin { background: #3262ff26; color: #8aa6ff; }
+.menu-wrap { position: relative; }
+.menu-pop {
+  position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; min-width: 190px; padding: 6px;
+  background: var(--surface); border: 1px solid var(--border-alpha); border-radius: 12px; box-shadow: 0 16px 40px #0009;
+  display: flex; flex-direction: column; animation: card-in .16s ease both;
+}
+.menu-pop button { text-align: left; padding: 9px 10px; border-radius: 8px; font-size: 14px; font-weight: 500; }
+.menu-pop button:hover { background: var(--hover-overlay); }
+.menu-pop button.danger { color: var(--no-text); }
+.btn-danger { background: var(--no); color: #fff; border: 0; }
+.btn-danger:hover:not(:disabled) { background: #f0181d; }
+.btn-danger:disabled { opacity: .45; cursor: not-allowed; }
+.danger-zone { border-color: #df0b1040; }
+.dz-row { display: flex; align-items: center; gap: 16px; padding: 12px 0; border-top: 1px solid var(--border); }
+.dz-row:first-of-type { border-top: 0; }
+.dz-row > div { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dz-confirm { margin-top: 8px; padding: 14px; border-radius: 12px; background: #48000040; border: 1px solid #df0b1040; display: flex; flex-direction: column; gap: 10px; }
+.dz-confirm .row-gap { justify-content: flex-end; }
+textarea { width: 100%; resize: vertical; }
+@media (max-width: 640px) { .dz-row { flex-direction: column; align-items: stretch; } }

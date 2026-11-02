@@ -5,8 +5,9 @@ import { Link, navigate } from '../router'
 import { useApp } from '../store'
 import { Flash } from './Motion'
 
-export function Avatar({ user, size = 32 }: { user: Pick<User, 'displayName' | 'avatarHue'> | null; size?: number }) {
+export function Avatar({ user, size = 32 }: { user: Pick<User, 'displayName' | 'avatarHue' | 'avatarUrl'> | null; size?: number }) {
   const hue = user?.avatarHue ?? 220
+  if (user?.avatarUrl) return <img className="avatar" src={user.avatarUrl} alt="" width={size} height={size} referrerPolicy="no-referrer" style={{ width: size, height: size, objectFit: 'cover' }} />
   return (
     <span className="avatar" style={{
       width: size, height: size, fontSize: size * 0.42,

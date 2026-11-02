@@ -4,15 +4,17 @@ export type Outcome = 'yes' | 'no'
 export type Side = 'buy' | 'sell'
 export type LeagueMode = 'mirror' | 'exchange'
 
-export interface User { id: string; username: string; displayName: string; avatarHue: number; createdAt: number }
+export interface User { id: string; username: string; displayName: string; avatarHue: number; avatarUrl?: string; createdAt: number; google?: boolean; hasPassword?: boolean }
+export type Role = 'owner' | 'admin' | 'member'
 export interface LeagueSummary {
-  id: string; name: string; mode: LeagueMode; role: 'owner' | 'member'; cash: number
+  id: string; name: string; mode: LeagueMode; role: Role; cash: number
   startingBalance: number; inviteCode: string; members: number
 }
 export interface League {
   id: string; name: string; inviteCode: string; mode: LeagueMode; startingBalance: number; ownerId: string
   createdAt: number; marketScope: 'all' | 'curated'; enabledEvents: string[]; disabledMarkets: string[]
-  houseLiquidity: boolean; members: (User & { role: string; joinedAt: number })[]
+  houseLiquidity: boolean; description?: string; season: number; myRole: Role | null
+  members: (User & { role: Role; joinedAt: number })[]
 }
 export interface Market {
   id: string; eventId: string; question: string; title: string; image: string; outcomes: [string, string]

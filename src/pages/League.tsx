@@ -179,11 +179,125 @@ function MarketManager({ league }: { league: LeagueT }) {
   )
 }
 
+function Members({ league }: { league: LeagueT }) {
+  const { user, refreshLeague, toast } = useApp()
+  const [menu, setMenu] = useState<string | null>(null)
+  const me = league.myRole
+  const rank = { member: 0, admin: 1, owner: 2 } as const
+  const act = async (path: string, method: 'PATCH' | 'DELETE' | 'POST', body: object | undefined, done: string) => {
+    setMenu(null)
+    try {
+      await api(path, { method, body })
+      await refreshLeague()
+      toast(done)
+    } catch (e) { toast((e as Error).message, 'error') }
+  }
+  return (
+    <section className="card settings-card">
+      <div className="settings-head"><h3>Members ({league.members.length})</h3></div>
+      <ul className="members">
+        {league.members.map((m) => {
+          const canManage = me && m.id !== user?.id && rank[me] > rank[m.role]
+          return (
+            <li key={m.id}>
+              <Avatar user={m} size={32} />
+              <span className="grow"><b>{m.displayName}</b> <small className="muted">@{m.username}</small></span>
+              {m.role !== 'member' && <span className={`tag role-${m.role}`}>{m.role === 'owner' ? 'Owner' : 'Admin'}</span>}
+              {canManage && (
+                <span className="menu-wrap">
+                  <button className="icon-btn" aria-label={`Manage ${m.displayName}`} onClick={() => setMenu(menu === m.id ? null : m.id)}><Icon name="more" size={18} /></button>
+                  {menu === m.id && (
+                    <div className="menu-pop" onMouseLeave={() => setMenu(null)}>
+                      {me === 'owner' && m.role === 'member' && <button onClick={() => act(`/api/leagues/${league.id}/members/${m.id}`, 'PATCH', { role: 'admin' }, `${m.displayName} is now an admin`)}>Make admin</button>}
+                      {me === 'owner' && m.role === 'admin' && <button onClick={() => act(`/api/leagues/${league.id}/members/${m.id}`, 'PATCH', { role: 'member' }, `${m.displayName} is now a member`)}>Remove admin</button>}
+                      {me === 'owner' && <button onClick={() => { if (confirm(`Hand ownership of ${league.name} to ${m.displayName}? You will become an admin.`)) void act(`/api/leagues/${league.id}/transfer`, 'POST', { userId: m.id }, `${m.displayName} now owns the league`) }}>Transfer ownership</button>}
+                      <button className="danger" onClick={() => { if (confirm(`Remove ${m.displayName}? Their open orders are cancelled and positions cleared.`)) void act(`/api/leagues/${league.id}/members/${m.id}`, 'DELETE', undefined, `Removed ${m.displayName}`) }}>Remove from league</button>
+                    </div>
+                  )}
+                </span>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+    </section>
+  )
+}
+
+function DangerZone({ league }: { league: LeagueT }) {
+  const { refreshMe, refreshLeague, toast } = useApp()
+  const [action, setAction] = useState<'reset' | 'delete' | null>(null)
+  const [typed, setTyped] = useState('')
+  const owner = league.myRole === 'owner'
+  const leave = async () => {
+    const alone = league.members.length <= 1
+    if (owner && !alone) return toast('Transfer ownership to someone else first, or delete the league', 'error')
+    if (!confirm(alone && owner ? `You are the only member, so leaving deletes ${league.name}. Continue?` : `Leave ${league.name}? Your orders are cancelled and positions cleared.`)) return
+    try {
+      await api(`/api/leagues/${league.id}/leave`, { method: 'POST' })
+      await refreshMe()
+      toast(`Left ${league.name}`)
+      navigate('/league')
+    } catch (e) { toast((e as Error).message, 'error') }
+  }
+  const confirmAction = async () => {
+    try {
+      if (action === 'reset') {
+        await api(`/api/leagues/${league.id}/reset`, { method: 'POST', body: { confirm: typed } })
+        await refreshLeague()
+        await refreshMe()
+        toast(`Season ${league.season + 1} started`)
+      } else {
+        await api(`/api/leagues/${league.id}`, { method: 'DELETE', body: { confirm: typed } })
+        await refreshMe()
+        toast(`Deleted ${league.name}`)
+        navigate('/league')
+      }
+      setAction(null)
+      setTyped('')
+    } catch (e) { toast((e as Error).message, 'error') }
+  }
+  return (
+    <section className="card settings-card danger-zone">
+      <h3>{owner ? 'Danger zone' : 'Leave league'}</h3>
+      <div className="dz-row">
+        <div><b>Leave league</b><small className="muted">Cancels your orders and clears your positions here.</small></div>
+        <button className="btn btn-outline btn-sm" onClick={leave}>Leave</button>
+      </div>
+      {owner && (
+        <>
+          <div className="dz-row">
+            <div><b>Start a new season</b><small className="muted">Season {league.season} → {league.season + 1}. Cancels every order, clears positions and trades, resets everyone to {usd(league.startingBalance, 0)}.</small></div>
+            <button className="btn btn-outline btn-sm" onClick={() => { setAction('reset'); setTyped('') }}>New season</button>
+          </div>
+          <div className="dz-row">
+            <div><b>Delete league</b><small className="muted">Permanently removes the league, its members, trades and bots.</small></div>
+            <button className="btn btn-danger btn-sm" onClick={() => { setAction('delete'); setTyped('') }}>Delete</button>
+          </div>
+        </>
+      )}
+      {action && (
+        <div className="dz-confirm">
+          <label className="field"><span>Type <b>{league.name}</b> to {action === 'reset' ? 'start a new season' : 'delete the league'}</span>
+            <input autoFocus value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={league.name} />
+          </label>
+          <div className="row-gap">
+            <button className="btn btn-ghost btn-sm" onClick={() => setAction(null)}>Cancel</button>
+            <button className="btn btn-danger btn-sm" disabled={typed.trim() !== league.name} onClick={confirmAction}>{action === 'reset' ? 'Start new season' : 'Delete forever'}</button>
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
+
 function LeagueSettings({ league }: { league: LeagueT }) {
-  const { user, refreshLeague, refreshMe, toast } = useApp()
-  const isOwner = league.ownerId === user?.id
+  const { refreshLeague, refreshMe, toast } = useApp()
+  const canAdmin = league.myRole === 'owner' || league.myRole === 'admin'
   const [name, setName] = useState(league.name)
-  useEffect(() => setName(league.name), [league.name])
+  const [desc, setDesc] = useState(league.description ?? '')
+  const [balance, setBalance] = useState(String(league.startingBalance))
+  useEffect(() => { setName(league.name); setDesc(league.description ?? ''); setBalance(String(league.startingBalance)) }, [league.name, league.description, league.startingBalance])
   const inviteUrl = `${location.origin}${import.meta.env.BASE_URL}join/${league.inviteCode}`
   const patch = async (body: object) => {
     try {
@@ -193,12 +307,16 @@ function LeagueSettings({ league }: { league: LeagueT }) {
       toast('Saved')
     } catch (e) { toast((e as Error).message, 'error') }
   }
+  const dirty = name !== league.name || desc !== (league.description ?? '') || Number(balance) !== league.startingBalance
   return (
     <>
-      <section className="card settings-card">
+      <section className="card settings-card league-hero">
         <div className="settings-head">
           <h2>{league.name}</h2> <ModeBadge mode={league.mode} />
+          <span className="tag">Season {league.season}</span>
+          {league.myRole && league.myRole !== 'member' && <span className={`tag role-${league.myRole}`}>You’re {league.myRole === 'owner' ? 'the owner' : 'an admin'}</span>}
         </div>
+        {league.description && <p className="league-desc">{league.description}</p>}
         <p className="muted">
           {league.mode === 'mirror'
             ? 'Mirror mode: orders fill against the live Polymarket order book.'
@@ -208,16 +326,20 @@ function LeagueSettings({ league }: { league: LeagueT }) {
         <div className="invite">
           <div><span className="muted small">Invite code</span><b className="code">{league.inviteCode}</b></div>
           <button className="btn btn-outline btn-sm" onClick={() => { void navigator.clipboard?.writeText(inviteUrl); toast('Invite link copied') }}><Icon name="copy" size={16} /> Copy invite link</button>
-          {isOwner && <button className="btn btn-ghost btn-sm" onClick={() => patch({ regenerateInvite: true })}>New code</button>}
+          {canAdmin && <button className="btn btn-ghost btn-sm" onClick={() => patch({ regenerateInvite: true })}>New code</button>}
         </div>
       </section>
 
-      {isOwner && (
+      {canAdmin && (
         <section className="card settings-card">
           <h3>Settings</h3>
-          <label className="field"><span>Name</span>
-            <div className="row-gap"><input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} /><button className="btn btn-outline" onClick={() => patch({ name })}>Save</button></div>
+          <label className="field"><span>Name</span><input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} /></label>
+          <label className="field"><span>Description</span><textarea rows={2} value={desc} onChange={(e) => setDesc(e.target.value)} maxLength={280} placeholder="House rules, prizes, trash talk…" /></label>
+          <label className="field"><span>Starting balance (fantasy $)</span>
+            <input inputMode="numeric" value={balance} onChange={(e) => setBalance(e.target.value.replace(/\D/g, ''))} />
+            <small className="muted">Applies to people who join from now on and to the next season.</small>
           </label>
+          <div><button className="btn btn-primary btn-sm" disabled={!dirty || !name.trim()} onClick={() => patch({ name, description: desc, startingBalance: Number(balance) })}>Save changes</button></div>
           {league.mode === 'exchange' && (
             <label className="field row"><Toggle on={league.houseLiquidity} onChange={(v) => patch({ houseLiquidity: v })} label="House liquidity" />
               <span>House market maker: quotes 250 shares ±2¢ around the Polymarket price on markets people are looking at</span></label>
@@ -225,16 +347,9 @@ function LeagueSettings({ league }: { league: LeagueT }) {
         </section>
       )}
 
-      {isOwner && <MarketManager league={league} />}
-
-      <section className="card settings-card">
-        <h3>Members ({league.members.length})</h3>
-        <ul className="members">
-          {league.members.map((m) => (
-            <li key={m.id}><Avatar user={m} size={32} /><span className="grow"><b>{m.displayName}</b> <small className="muted">@{m.username}</small></span>{m.role === 'owner' && <span className="tag">Owner</span>}</li>
-          ))}
-        </ul>
-      </section>
+      {canAdmin && <MarketManager league={league} />}
+      <Members league={league} />
+      <DangerZone league={league} />
     </>
   )
 }

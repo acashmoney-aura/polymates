@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { api, type User } from './api'
 import { Header, MobileNav } from './components/Header'
 import { Modal } from './components/ui'
+import { GoogleButton } from './components/GoogleButton'
 import { Icon, Logo } from './icons'
 import { Developers } from './pages/Developers'
 import { Lab } from './pages/Lab'
@@ -42,6 +43,11 @@ function AuthModal() {
       <div className="auth-logo"><Logo /></div>
       <h2>{signup ? 'Create your account' : 'Welcome back'}</h2>
       <p className="muted small">Fantasy dollars only. No deposits, no withdrawals, no real money.</p>
+      <GoogleButton
+        text={signup ? 'signup_with' : 'signin_with'}
+        onSignedIn={(token, user) => void login(token, user)}
+        onError={setError}
+      />
       <form onSubmit={submit} className="auth-form">
         <input autoFocus value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Username" autoComplete="username" autoCapitalize="none" />
         {signup && <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Display name (optional)" />}
