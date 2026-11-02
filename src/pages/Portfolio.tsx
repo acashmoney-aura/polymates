@@ -181,8 +181,23 @@ export function Leaderboard() {
           <button className={sort === 'pnl' ? 'active' : ''} onClick={() => setSort('pnl')}>Profit/Loss</button>
           <button className={sort === 'volume' ? 'active' : ''} onClick={() => setSort('volume')}>Volume</button>
         </div>
+        {rows && sorted.length >= 2 && (
+          <div className="podium">
+            {[1, 0, 2].filter((i) => sorted[i]).map((i) => {
+              const r = sorted[i]
+              return (
+                <div key={r.userId} className={`podium-col p${i + 1}`} style={{ animationDelay: `${[1, 0, 2].indexOf(i) * 120}ms` }}>
+                  <Avatar user={r} size={i === 0 ? 64 : 52} />
+                  <b className="ellipsis">{r.displayName}</b>
+                  <span className={r.pnl >= 0 ? 'yes-accent' : 'no-color'}>{signedUsd(r.pnl)}</span>
+                  <div className="podium-block" style={{ background: `linear-gradient(180deg, ${medal[i]}55, transparent)`, borderColor: `${medal[i]}88` }}>{i + 1}</div>
+                </div>
+              )
+            })}
+          </div>
+        )}
         {!rows ? <Spinner /> : sorted.map((r, i) => (
-          <div key={r.userId} className={`lb-row ${r.userId === user.id ? 'me' : ''}`}>
+          <div key={r.userId} className={`lb-row ${r.userId === user.id ? 'me' : ''}`} style={{ animationDelay: `${i * 35}ms` }}>
             <span className="rank">{i + 1}</span>
             <span className="lb-av">
               <Avatar user={r} size={40} />

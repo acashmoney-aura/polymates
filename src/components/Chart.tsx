@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { api, pct } from '../api'
 
 export const SERIES_COLORS = ['#0093fd', '#ff5952', '#ff7f0e', '#fdc503', '#9b51e0']
@@ -45,6 +45,7 @@ const fmtTime = (t: number, span: number) => {
 export function PriceChart({ series, height = 272, endLabels = false }: { series: Series[]; height?: number; endLabels?: boolean }) {
   const [ref, width] = useWidth()
   const [hover, setHover] = useState<number | null>(null)
+  const gid = useId().replace(/:/g, '')
   const padR = endLabels && width > 560 ? 150 : 44
   const padT = 12
   const padB = 26
@@ -81,6 +82,14 @@ export function PriceChart({ series, height = 272, endLabels = false }: { series
         <div className="chart-empty" style={{ height }}>No price history yet</div>
       ) : (
         <svg width={width} height={height}>
+          <defs>
+            {valid.map((s) => (
+              <linearGradient key={s.id} id={`${gid}${s.id}`} x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stopColor={s.color} stopOpacity="0.22" />
+                <stop offset="100%" stopColor={s.color} stopOpacity="0" />
+              </linearGradient>
+            ))}
+          </defs>
           {ticks.map((v) => (
             <g key={v}>
               <line x1={0} x2={innerW} y1={y(v)} y2={y(v)} stroke="var(--grid)" strokeDasharray="1 3" />
@@ -92,8 +101,11 @@ export function PriceChart({ series, height = 272, endLabels = false }: { series
             const d = s.points.map((pt, i) => `${i ? 'L' : 'M'}${x(pt.t).toFixed(1)},${y(pt.p).toFixed(1)}`).join('')
             const last = s.points[s.points.length - 1]
             return (
-              <g key={s.id}>
-                <path d={d} fill="none" stroke={s.color} strokeWidth={2.75} strokeLinejoin="round" />
+              <g key={`${s.id}-${s.points.length}-${t0}`}>
+                {valid.length === 1 && (
+                  <path d={`${d}L${x(last.t).toFixed(1)},${y(0)}L${x(s.points[0].t).toFixed(1)},${y(0)}Z`} fill={`url(#${gid}${s.id})`} className="area-in" />
+                )}
+                <path d={d} fill="none" stroke={s.color} strokeWidth={2.75} strokeLinejoin="round" pathLength={1} className="draw-in" />
                 <circle cx={x(last.t)} cy={y(last.p)} r={8} fill={s.color} opacity={0.3} className="pulse" />
                 <circle cx={x(last.t)} cy={y(last.p)} r={4} fill={s.color} />
                 {endLabels && width > 560 && (

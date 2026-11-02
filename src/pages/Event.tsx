@@ -5,6 +5,7 @@ import {
 } from '../api'
 import { PriceChart, RANGES, SERIES_COLORS, useHistory, type Range } from '../components/Chart'
 import { OrderBook } from '../components/OrderBook'
+import { StatsForNerds } from '../components/StatsForNerds'
 import { TradePanel } from '../components/TradePanel'
 import { Avatar, Empty, Img, Sheet, Spinner } from '../components/ui'
 import { Icon } from '../icons'
@@ -259,6 +260,8 @@ export function EventPage({ slug }: { slug: string }) {
             <OrderBook market={selected} outcome={outcome} onOutcome={setOutcome} onPrice={(p) => setPreset({ price: p, n: Date.now() })} />
           </>
         )}
+
+        <StatsForNerds market={selected} event={event} />
 
         <section className="ev-section">
           <div className="text-tabs"><button className="active">Rules</button></div>

@@ -95,6 +95,29 @@ The response is `{order, fills: [{price, size}], avgPrice, cash}`. Buy orders re
 ### Live stream
 `GET /api/stream?league=<id>&token=<token>` is Server-Sent Events. Message types: `trade, book, orders, activity, resolve, league`, each with `marketId` where relevant. Refetch what you need when a message arrives.
 
+## Quant
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/api/backtest/templates` | starter strategies: momentum, mean reversion, market maker, longshot fade, buy & hold |
+| POST | `/api/backtest` | `{code, marketIds[1-8], range: '1d'\|'1w'\|'1m'\|'all', cash, spread, feeBps}` (auth required) |
+| GET | `/api/quant/scanner` | negRisk overround and arbs, 24h movers, coin flips ending this week, wide spreads, long shots |
+
+How the backtester works:
+- It runs the same `onTick(pm)` code as hosted scripts. You can also define `initialize(pm)`, which runs once.
+- The code is replayed bar by bar over Polymarket price history on a regular time grid.
+- `pm.history(id, n)` returns the last `n` bars, and the strategy never sees data from the future.
+- Fills are simulated against a book of ±`spread/2` around the historical price.
+- Markets that Polymarket has resolved settle at their payout.
+
+Results include:
+- the equity curve, with drawdown and an equal-weight buy-and-hold benchmark;
+- total and annualized return, Sharpe, Sortino, volatility and max drawdown;
+- beta and alpha against the benchmark;
+- win rate, exposure, fees, the list of fills and your logs.
+
+Live scripts also get `pm.history(id, n)`, so a strategy you backtested runs unchanged when you deploy it.
+
 ## MCP
 
 Endpoint `POST {BASE}/mcp`, stateless Streamable HTTP, `Authorization: Bearer pm_…`.
@@ -107,7 +130,7 @@ claude mcp add --transport http polymates https://YOUR-API/mcp --header "Authori
 { "mcpServers": { "polymates": { "url": "https://YOUR-API/mcp", "headers": { "Authorization": "Bearer pm_..." } } } }
 ```
 
-Tools: `whoami, list_leagues, search_markets, get_event, get_market, get_order_book, get_portfolio, place_order, cancel_order, cancel_all_orders, list_orders, list_trades, get_leaderboard, list_scripts, upload_script, run_script, get_script_logs, set_script_enabled, delete_script`. Omit `league_id` to use your first league.
+Tools: `whoami, list_leagues, search_markets, get_price_history, scan_markets, list_strategy_templates, run_backtest, get_event, get_market, get_order_book, get_portfolio, place_order, cancel_order, cancel_all_orders, list_orders, list_trades, get_leaderboard, list_scripts, upload_script, run_script, get_script_logs, set_script_enabled, delete_script`. Omit `league_id` to use your first league.
 
 ## Hosted scripts
 
@@ -139,7 +162,7 @@ function onTick(pm) {
 }
 ```
 
-`pm` API: `markets({q, tag, limit})`, `event(slug)`, `market(id)`, `book(id)`, `portfolio()`, `orders()`, `leaderboard()`, `order({...})`, `buy(id, outcome, price, size)`, `sell(...)`, `marketBuy(id, outcome, dollars)`, `marketSell(id, outcome, shares)`, `cancel(orderId)`, `cancelAll(marketId?)`, `log(...)`, plus `store` (JSON persisted between runs, up to 64KB), `now`, `mode`, `leagueId`.
+`pm` API: `markets({q, tag, limit})`, `event(slug)`, `market(id)`, `book(id)`, `history(id, n)`, `portfolio()`, `orders()`, `leaderboard()`, `order({...})`, `buy(id, outcome, price, size)`, `sell(...)`, `marketBuy(id, outcome, dollars)`, `marketSell(id, outcome, shares)`, `cancel(orderId)`, `cancelAll(marketId?)`, `log(...)`, plus `store` (JSON persisted between runs, up to 64KB), `now`, `mode`, `leagueId`.
 
 Sandbox limits:
 - Scripts run in QuickJS compiled to WebAssembly, with no network, filesystem, timers or Node APIs.

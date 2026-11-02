@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { api, compactUsd, pct, qs, shortDate, signedUsd, type LeaderRow, type PMEvent } from '../api'
 import { PriceChart, SERIES_COLORS, useHistory } from '../components/Chart'
 import { CATEGORIES } from '../components/Header'
+import { LiveTicker } from '../components/Motion'
 import { Avatar, CardSkeleton, Empty, Img, MarketCard, ModeBadge, useEvents } from '../components/ui'
 import { Icon } from '../icons'
 import { Link, navigate, useLocation, useTitle } from '../router'
@@ -12,7 +13,15 @@ const PAGE = 24
 function Featured({ events }: { events: PMEvent[] }) {
   const [i, setI] = useState(0)
   const ev = events[i]
-  const markets = ev ? [...ev.markets].filter((m) => m.active).sort((a, b) => b.price - a.price).slice(0, ev.markets.length === 1 ? 1 : 4) : []
+  const markets = useMemo(() => {
+    if (!ev) return []
+    const open = ev.markets.filter((m) => m.active)
+    if (open.length <= 1) return open.slice(0, 1)
+    // same rule as cards: one-winner events by chance, other groups (game lines, dates) in Polymarket order
+    const live = open.filter((m) => m.price > 0.005 && m.price < 0.995)
+    const pool = live.length >= 2 ? live : open
+    return (ev.negRisk ? [...pool].sort((a, b) => b.price - a.price) : pool).slice(0, 4)
+  }, [ev])
   const hist = useHistory(markets.map((m) => m.id), '1W')
   useEffect(() => {
     const t = setInterval(() => setI((x) => (x + 1) % Math.max(1, events.length)), 12_000)
@@ -133,8 +142,10 @@ export function Home() {
 
   return (
     <div className="wrap page home">
+      {showHero && <LiveTicker />}
       {showHero && (
         <section className="hero">
+          <div className="aurora" aria-hidden><i /><i /><i /></div>
           <Featured events={events.slice(0, 8)} />
           <Sidebar breaking={breaking.data?.events ?? []} />
         </section>
@@ -160,7 +171,7 @@ export function Home() {
       )}
       <div className="grid">
         {!data && Array.from({ length: 12 }, (_, i) => <CardSkeleton key={i} />)}
-        {events.map((e) => <MarketCard key={e.id} event={e} />)}
+        {events.map((e, i) => <MarketCard key={e.id} event={e} index={i} />)}
       </div>
       {data && data.total > events.length && (
         <div className="center"><button className="pill" onClick={() => setPages(pages + 1)}>Show more markets</button></div>

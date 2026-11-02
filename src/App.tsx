@@ -4,6 +4,7 @@ import { Header, MobileNav } from './components/Header'
 import { Modal } from './components/ui'
 import { Icon, Logo } from './icons'
 import { Developers } from './pages/Developers'
+import { Lab } from './pages/Lab'
 import { EventPage, SheetHost } from './pages/Event'
 import { Home, SearchPage } from './pages/Home'
 import { JoinPage, LeaguePage } from './pages/League'
@@ -71,6 +72,7 @@ function MorePage() {
   const items = [
     { to: '/league', label: league ? `League: ${league.name}` : 'Leagues', icon: 'users' as const },
     { to: '/activity', label: 'League activity', icon: 'activity' as const },
+    { to: '/lab', label: 'Quant Lab', icon: 'zap' as const },
     { to: '/developers', label: 'Agents & API', icon: 'bot' as const },
     { to: '/?tag=league', label: 'League markets', icon: 'swap' as const },
   ]
@@ -106,6 +108,11 @@ function Footer() {
   )
 }
 
+function RoutedMain() {
+  const { path } = useLocation()
+  return <main key={path} className="route-fade"><Routes /></main>
+}
+
 function Routes() {
   const { path } = useLocation()
   if (path.startsWith('/event/')) return <EventPage key={path} slug={decodeURIComponent(path.slice(7))} />
@@ -118,6 +125,7 @@ function Routes() {
     case '/activity': return <ActivityPage />
     case '/search': return <SearchPage />
     case '/more': return <MorePage />
+    case '/lab': return <Lab />
     default: return <Home />
   }
 }
@@ -126,7 +134,7 @@ export default function App() {
   return (
     <AppProvider>
       <Header />
-      <main><Routes /></main>
+      <RoutedMain />
       <Footer />
       <MobileNav />
       <AuthModal />

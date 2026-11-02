@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { api, cents, shares as fmtShares, usd, type Market, type Outcome, type Side } from '../api'
 import { Icon } from '../icons'
 import { Link } from '../router'
 import { useApp } from '../store'
+import { burst } from './Motion'
 import { sideBook, useBook } from './OrderBook'
 import { Img } from './ui'
 
@@ -46,6 +47,7 @@ export function TradePanel({ market, eventTitle, eventImage, multi, outcome, onO
   const [qty, setQty] = useState('')
   const [busy, setBusy] = useState(false)
   const { book } = useBook(market)
+  const submitRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     if (presetPrice) {
@@ -102,6 +104,8 @@ export function TradePanel({ market, eventTitle, eventImage, multi, outcome, onO
       )
       const label = outcome === 'yes' ? market.outcomes[0] : market.outcomes[1]
       if (res.order.filled > 0) {
+        const r = submitRef.current?.getBoundingClientRect()
+        if (r) burst(r.left + r.width / 2, r.top + r.height / 2)
         toast(`${side === 'buy' ? 'Bought' : 'Sold'} ${fmtShares(res.order.filled)} ${label} at ${cents(res.avgPrice)}${res.order.status === 'open' ? ' (rest resting)' : ''}`)
       } else {
         toast(`Limit order placed: ${fmtShares(res.order.size)} ${label} at ${limit}¢`)
@@ -222,7 +226,7 @@ export function TradePanel({ market, eventTitle, eventImage, multi, outcome, onO
       ) : !leagueId ? (
         <Link to="/league?new=1" className="ledge-btn">Create or join a league to trade</Link>
       ) : (
-        <button className="ledge-btn" disabled={!canSubmit} onClick={submit}>
+        <button ref={submitRef} className={`ledge-btn ${busy ? 'loading' : ''}`} disabled={!canSubmit} onClick={submit}>
           {disabledReason ?? (busy ? 'Placing…' : type === 'limit' ? `${side === 'buy' ? 'Buy' : 'Sell'} ${label}` : 'Trade')}
         </button>
       )}

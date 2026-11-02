@@ -15,6 +15,11 @@ Polymarket with your friends. Real Polymarket markets, fantasy dollars, private 
   - A REST API with API keys.
   - An MCP server (`/mcp`) for Claude Code, Codex, Cursor and similar tools.
   - Hosted JavaScript bots that run on the backend every N seconds in a QuickJS/WebAssembly sandbox.
+- **Quant Lab:**
+  - A QuantConnect-style backtester: write `onTick(pm)`, replay it over real Polymarket history, read Sharpe, drawdown and beta against buy-and-hold, then deploy the same code as a live bot.
+  - A correlation checker with a heatmap, scatter plot with regression line, rolling correlation and hedge ratio.
+  - A mispricing scanner for overround and arbs, movers, coin flips, wide spreads and long shots.
+- **Stats for nerds on every market:** microprice, book imbalance, depth, implied odds, realized and log-odds volatility, autocorrelation, Hurst exponent, implied APR, and a Kelly sizer.
 - **The UI is a Polymarket clone:** dark theme, category tabs, market cards with gauges, event pages with a price chart, order book and trade panel, a portfolio and a leaderboard. It's built mobile-first, with a bottom nav and a trade sheet on phones.
 
 ## Layout

@@ -3,6 +3,7 @@ import { usd } from '../api'
 import { Icon, Logo, type IconName } from '../icons'
 import { Link, navigate, useLocation } from '../router'
 import { useApp } from '../store'
+import { AnimatedNumber } from './Motion'
 import { Avatar, ModeBadge } from './ui'
 
 export const CATEGORIES: { slug: string; label: string; icon?: IconName }[] = [
@@ -93,6 +94,7 @@ function UserMenu() {
           <button className="menu-item" onClick={go('/leaderboard')}><Icon name="trophy" size={16} /> Leaderboard</button>
           <button className="menu-item" onClick={go('/activity')}><Icon name="activity" size={16} /> Activity</button>
           <button className="menu-item" onClick={go('/league')}><Icon name="settings" size={16} /> {league?.ownerId === user.id ? 'League settings' : 'League'}</button>
+          <button className="menu-item" onClick={go('/lab')}><Icon name="zap" size={16} /> Quant Lab</button>
           <button className="menu-item" onClick={go('/developers')}><Icon name="bot" size={16} /> Agents & API</button>
           <div className="menu-sep" />
           <button className="menu-item" onClick={() => { logout(); setOpen(false) }}><Icon name="logout" size={16} /> Log out</button>
@@ -139,8 +141,8 @@ export function Header() {
         <div className="header-right">
           {user && portfolio && leagueId ? (
             <>
-              <Link to="/portfolio" className="hdr-stat"><span>Portfolio</span><b className="yes-accent">{usd(portfolio.value)}</b></Link>
-              <Link to="/portfolio" className="hdr-stat hide-sm"><span>Cash</span><b className="yes-accent">{usd(portfolio.cash)}</b></Link>
+              <Link to="/portfolio" className="hdr-stat"><span>Portfolio</span><b className="yes-accent"><AnimatedNumber value={portfolio.value} format={(n) => usd(n)} /></b></Link>
+              <Link to="/portfolio" className="hdr-stat hide-sm"><span>Cash</span><b className="yes-accent"><AnimatedNumber value={portfolio.cash} format={(n) => usd(n)} /></b></Link>
             </>
           ) : user ? (
             <Link to="/league?new=1" className="btn btn-primary btn-sm">Create league</Link>
@@ -164,6 +166,8 @@ export function Header() {
               </Link>
             ),
           )}
+          <span className="tab-sep" />
+          <Link to="/lab" className={`tab tab-lab ${path === '/lab' ? 'active' : ''}`}><Icon name="zap" size={16} />Quant Lab</Link>
         </div>
       </nav>
     </header>
@@ -177,7 +181,7 @@ export function MobileNav() {
     { to: '/search', label: 'Search', icon: 'search', match: (p) => p === '/search' },
     { to: '/leaderboard', label: 'Ranks', icon: 'trophy', match: (p) => p === '/leaderboard' },
     { to: '/portfolio', label: 'Portfolio', icon: 'wallet', match: (p) => p === '/portfolio' },
-    { to: '/more', label: 'More', icon: 'menu', match: (p) => ['/more', '/league', '/developers', '/activity'].includes(p) },
+    { to: '/more', label: 'More', icon: 'menu', match: (p) => ['/more', '/league', '/developers', '/activity', '/lab'].includes(p) },
   ]
   return (
     <nav className="mobile-nav">

@@ -3,6 +3,7 @@ import { api, compactUsd, pct, type Market, type PMEvent, type User } from '../a
 import { Icon } from '../icons'
 import { Link, navigate } from '../router'
 import { useApp } from '../store'
+import { Flash } from './Motion'
 
 export function Avatar({ user, size = 32 }: { user: Pick<User, 'displayName' | 'avatarHue'> | null; size?: number }) {
   const hue = user?.avatarHue ?? 220
@@ -32,9 +33,9 @@ export function Gauge({ p }: { p: number }) {
       <svg width="58" height="34" viewBox="0 0 58 34">
         <path d={`M5 30 A${r} ${r} 0 0 1 53 30`} fill="none" stroke="var(--gauge-track)" strokeWidth="4.5" strokeLinecap="round" />
         <path d={`M5 30 A${r} ${r} 0 0 1 53 30`} fill="none" stroke={color} strokeWidth="4.5" strokeLinecap="round"
-          strokeDasharray={`${Math.max(0.001, p) * len} ${len}`} />
+          strokeDasharray={`${Math.max(0.001, p) * len} ${len}`} className="gauge-fill" />
       </svg>
-      <div className="gauge-text"><b>{pct(p)}</b><span>chance</span></div>
+      <div className="gauge-text"><b><Flash value={p}>{pct(p)}</Flash></b><span>chance</span></div>
     </div>
   )
 }
@@ -93,7 +94,7 @@ export function ModeBadge({ mode }: { mode: 'mirror' | 'exchange' }) {
 
 /* ---------------- market card ---------------- */
 
-export function MarketCard({ event }: { event: PMEvent }) {
+export function MarketCard({ event, index = 0 }: { event: PMEvent; index?: number }) {
   const { user, openAuth, openSheet } = useApp()
   const markets = event.markets.filter((m) => m.active && m.enabled)
   const isBinary = event.markets.length === 1
@@ -112,7 +113,7 @@ export function MarketCard({ event }: { event: PMEvent }) {
   }
   const m0 = top[0]
   return (
-    <Link to={href} className="card market-card">
+    <Link to={href} className="card market-card" style={{ '--i': index % 24 } as React.CSSProperties}>
       <div className="mc-head">
         <Img src={event.icon || event.image} size={38} />
         <h3 className="mc-title">{event.title}</h3>
@@ -128,7 +129,7 @@ export function MarketCard({ event }: { event: PMEvent }) {
           {top.map((m) => (
             <div className="mc-row" key={m.id}>
               <span className="mc-name">{m.title}</span>
-              <b className="mc-pct">{pct(m.price)}</b>
+              <Flash value={m.price} className="mc-pct">{pct(m.price)}</Flash>
               <button className="mini-yes" onClick={quick(m, 'yes')}><span>Yes</span><span>{pct(m.price)}</span></button>
               <button className="mini-no" onClick={quick(m, 'no')}><span>No</span><span>{pct(1 - m.price)}</span></button>
             </div>
