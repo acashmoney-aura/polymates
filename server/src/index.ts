@@ -9,6 +9,7 @@ import { recordEquitySnapshots, registerPnlSource } from './leaderboard.ts'
 import { startHouse } from './house.ts'
 import { leagueAdmin, publicUser } from './leagues.ts'
 import { handleMcp } from './mcp.ts'
+import { live, liveStatus, resubscribe, startLive } from './live.ts'
 import { getPerpAsset, listPerpAssets, perpPnlSource, perpsApi, setTestPrice, startPerps } from './perps.ts'
 import { electionsOverview } from './elections.ts'
 import { catalog, marketById, pmHistory, refreshMarkets, syncCatalog } from './polymarket.ts'
@@ -343,6 +344,11 @@ app.get('/api/events', wrap((req) => {
     limit: req.query.limit ? Number(req.query.limit) : undefined,
     offset: req.query.offset ? Number(req.query.offset) : undefined,
     includeDisabled: req.query.all === '1',
+    ends: req.query.ends ? String(req.query.ends) : undefined,
+    band: req.query.band ? String(req.query.band) : undefined,
+    kind: req.query.kind ? String(req.query.kind) : undefined,
+    minVolume24h: req.query.minVol ? Number(req.query.minVol) : undefined,
+    minLiquidity: req.query.minLiq ? Number(req.query.minLiq) : undefined,
   })
 }))
 app.get('/api/elections', wrap(() => electionsOverview()))
@@ -368,6 +374,20 @@ app.get('/api/markets/:mid/history', wrap(async (req) => {
 }))
 
 /* ---------------- live stream ---------------- */
+
+/** Public Polymarket price ticks: one batch a second of [marketId, price, bestBid, bestAsk, lastTrade]. */
+app.get('/api/live', (req, res) => {
+  res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive', 'x-accel-buffering': 'no' })
+  res.write(': connected\n\n')
+  const onPrices = (batch: unknown) => res.write(`data: ${JSON.stringify(batch)}\n\n`)
+  live.on('prices', onPrices)
+  const ping = setInterval(() => res.write(': ping\n\n'), 25_000)
+  req.on('close', () => {
+    live.off('prices', onPrices)
+    clearInterval(ping)
+  })
+})
+app.get('/api/live/status', wrap(() => liveStatus()))
 
 app.get('/api/stream', (req, res) => {
   const auth = authenticate(req)
@@ -503,7 +523,8 @@ async function main() {
   await syncCatalog()
   await resolveMarkets().catch((err) => console.error('[resolve]', err))
   recordEquitySnapshots()
-  every(90_000, syncCatalog)
+  startLive()
+  every(90_000, async () => { await syncCatalog(); resubscribe() })
   every(60_000, resolveMarkets)
   every(8_000, sweepMirrorOrders)
   every(10 * 60_000, async () => recordEquitySnapshots())

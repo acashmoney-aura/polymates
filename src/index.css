@@ -661,3 +661,52 @@ details summary { cursor: pointer; color: var(--text-2); font-size: 14px; margin
 .dz-confirm .row-gap { justify-content: flex-end; }
 textarea { width: 100%; resize: vertical; }
 @media (max-width: 640px) { .dz-row { flex-direction: column; align-items: stretch; } }
+
+/* ---------------- market list: search, sort, filters, infinite scroll ---------------- */
+.markets-head { flex-wrap: wrap; row-gap: 10px; }
+.live-pill { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px; border-radius: 999px; font-size: 12px; font-weight: 600; color: var(--yes, #3db468); background: color-mix(in srgb, var(--yes, #3db468) 14%, transparent); }
+.live-pill i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: live-blink 1.6s infinite; }
+@keyframes live-blink { 50% { opacity: 0.25; } }
+.inline-search { display: flex; align-items: center; gap: 8px; height: 36px; width: min(320px, 100%); padding: 0 10px; border-radius: 10px; background: var(--surface-2); color: var(--text-3); border: 1px solid transparent; }
+.inline-search:focus-within { border-color: var(--border-strong, #3a3f4b); }
+.inline-search input { flex: 1; min-width: 0; background: none; border: 0; outline: 0; color: var(--text-strong); font-size: 14px; }
+.inline-search button { display: inline-flex; color: var(--text-3); }
+.filter-toggle { gap: 6px; }
+.filter-toggle.on { background: var(--surface-3); color: var(--text-strong); }
+.filter-toggle b { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--blue, #3262ff); color: #fff; font-size: 11px; display: inline-flex; align-items: center; justify-content: center; }
+.sort-row { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin-bottom: 12px; }
+.sort-row::-webkit-scrollbar { display: none; }
+.sort-row button { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border, #2a2e37); color: var(--text-2); font-size: 14px; font-weight: 500; white-space: nowrap; }
+.sort-row button:hover { color: var(--text-strong); background: var(--hover-overlay); }
+.sort-row button.active { background: var(--text-strong); color: var(--bg); border-color: var(--text-strong); }
+.filter-panel { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; padding: 12px; margin-bottom: 14px; border-radius: 12px; background: var(--surface-1, var(--surface-2)); border: 1px solid var(--border, #2a2e37); }
+.filter-field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-3); }
+.filter-field select { height: 34px; min-width: 150px; padding: 0 10px; border-radius: 8px; background: var(--surface-2); color: var(--text-strong); border: 1px solid var(--border, #2a2e37); font-size: 14px; }
+.filter-panel .link-btn { height: 34px; color: var(--text-2); font-size: 14px; text-decoration: underline; }
+.sort-hint { margin: -4px 0 12px; color: var(--text-3); font-size: 13px; }
+.mc-metric { color: var(--text-strong); font-weight: 600; max-width: 85%; }
+.scroll-sentinel { height: 1px; }
+.end-of-list { text-align: center; color: var(--text-3); font-size: 13px; margin: 24px 0; }
+@media (max-width: 640px) { .inline-search { width: 100%; order: 5; } }
+
+/* ---------------- syntax highlighting ---------------- */
+.hl { color: #d7dae0; }
+.hl .tk-comment { color: #6b7280; font-style: italic; }
+.hl .tk-string { color: #7ee2a8; }
+.hl .tk-keyword, .hl .tk-cmd { color: #c792ea; }
+.hl .tk-literal, .hl .tk-number { color: #f9a560; }
+.hl .tk-fn { color: #82aaff; }
+.hl .tk-prop { color: #89ddff; }
+.hl .tk-punct { color: #8b93a3; }
+.hl .tk-flag { color: #ffcb6b; }
+.hl .tk-url { color: #82aaff; text-decoration: underline; text-decoration-color: #82aaff55; }
+.hl .tk-var { color: #ff8b8b; }
+.code-area { position: relative; flex: 1; min-width: 0; }
+.code-editor .code-area .code-layer, .code-editor .code-area textarea {
+  position: absolute; inset: 0; margin: 0; padding: 12px; border: 0; border-radius: 0;
+  font: inherit; line-height: inherit; tab-size: 2; white-space: pre; overflow: auto; letter-spacing: normal; word-spacing: normal;
+}
+.code-editor .code-area .code-layer { overflow: hidden; pointer-events: none; background: none; }
+.code-editor .code-area textarea { color: transparent; caret-color: #e8eaed; background: none; resize: none; -webkit-text-fill-color: transparent; }
+.code-editor .code-area textarea::selection { background: #3262ff55; -webkit-text-fill-color: transparent; }
+.code-editor.script-editor { height: 340px; }

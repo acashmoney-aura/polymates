@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import type { Request, Response } from 'express'
 import { z } from 'zod'
-import { agentApi } from './agent-api.ts'
+import { agentApi, EVENT_SORTS } from './agent-api.ts'
 import { leagueAdmin } from './leagues.ts'
 import { getPerpAsset, listPerpAssets, PERP_CATEGORIES, perpsApi } from './perps.ts'
 import { eventCurveFor, microstructure, portfolioRisk, volatilityRanking, volCone } from './analytics.ts'
@@ -95,11 +95,19 @@ function build(userId: string) {
     {
       query: z.string().optional().describe('Text search over event and outcome titles'),
       category: z.string().optional().describe('trending | new | breaking | politics | sports | crypto | finance | tech | geopolitics | elections | pop-culture | economy | league'),
+      sort: z.enum(EVENT_SORTS).optional().describe('trending (default) | volume24h | volume | liquidity | new | ending | movers (biggest 24h move) | movers1h | volatile (widest 1h range, live) | competitive (closest to 50%) | spread (tightest)'),
+      ends: z.enum(['1d', '1w', '1m']).optional().describe('Only events ending within this window'),
+      band: z.enum(['longshot', 'tossup', 'favorite']).optional().describe('Only events with an outcome priced <15%, 35-65% or >85%'),
+      kind: z.enum(['binary', 'multi']).optional(),
+      min_volume_24h: z.number().optional(),
       limit: z.number().int().min(1).max(50).optional(),
       offset: z.number().int().min(0).optional(),
       league_id: leagueId,
     },
-    (a) => api.listEvents({ leagueId: a.league_id ?? api.listLeagues()[0]?.id, q: a.query, tag: a.category, limit: a.limit ?? 10, offset: a.offset }),
+    (a) => api.listEvents({
+      leagueId: a.league_id ?? api.listLeagues()[0]?.id, q: a.query, tag: a.category, sort: a.sort, ends: a.ends, band: a.band,
+      kind: a.kind, minVolume24h: a.min_volume_24h, limit: a.limit ?? 10, offset: a.offset,
+    }),
   )
   tool('get_event', 'Full event by slug with every outcome market, rules text and prices.', { slug: z.string(), league_id: leagueId },
     (a) => api.getEvent(a.slug, a.league_id ?? api.listLeagues()[0]?.id))

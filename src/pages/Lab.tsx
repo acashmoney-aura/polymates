@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api, cents, compactUsd, pct, qs, shortDate, signedUsd, usd, type Market, type PMEvent, type ScriptRow } from '../api'
+import { CodeEditor, highlight } from '../components/Code'
 import { AnimatedNumber } from '../components/Motion'
 import { Heatmap, LineChart, Scatter } from '../components/QuantCharts'
 import { Empty, Img, Spinner } from '../components/ui'
@@ -116,27 +117,6 @@ export function Tile({ label, value, format, tone, hint }: { label: string; valu
   )
 }
 
-function CodeEditor({ value, onChange, onRun }: { value: string; onChange: (v: string) => void; onRun: () => void }) {
-  const gutter = useRef<HTMLDivElement>(null)
-  const lines = value.split('\n').length
-  return (
-    <div className="code-editor">
-      <div className="gutter" ref={gutter} aria-hidden>{Array.from({ length: lines }, (_, i) => <span key={i}>{i + 1}</span>)}</div>
-      <textarea spellCheck={false} value={value} aria-label="Strategy code"
-        onScroll={(e) => { if (gutter.current) gutter.current.scrollTop = e.currentTarget.scrollTop }}
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(e) => {
-          if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); onRun() }
-          if (e.key === 'Tab') {
-            e.preventDefault()
-            const t = e.currentTarget, s = t.selectionStart
-            onChange(`${value.slice(0, s)}  ${value.slice(t.selectionEnd)}`)
-            requestAnimationFrame(() => { t.selectionStart = t.selectionEnd = s + 2 })
-          }
-        }} />
-    </div>
-  )
-}
 
 function Backtest() {
   const { user, leagueId, openAuth, toast } = useApp()
@@ -205,17 +185,17 @@ function Backtest() {
           <span className="grow" />
           <span className="muted small hide-sm">⌘/Ctrl + Enter to run</span>
         </div>
-        <CodeEditor value={code} onChange={setCode} onRun={run} />
+        <CodeEditor value={code} onChange={setCode} onRun={run} label="Strategy code" />
         <details className="api-ref">
           <summary>pm API</summary>
-          <pre>{`initialize(pm)            // optional, runs once
+          <pre className="hl">{highlight(`initialize(pm)            // optional, runs once
 onTick(pm)                // runs every bar
 pm.markets()  pm.market(id)  pm.book(id)  pm.now
 pm.history(id, n)         // last n bars, no lookahead
 pm.portfolio()  pm.orders()
 pm.buy(id, 'yes'|'no', price, shares)  pm.sell(...)
 pm.marketBuy(id, outcome, dollars)  pm.marketSell(id, outcome, shares)
-pm.cancel(orderId)  pm.cancelAll(id?)  pm.log(...)  pm.store`}</pre>
+pm.cancel(orderId)  pm.cancelAll(id?)  pm.log(...)  pm.store`, 'js')}</pre>
         </details>
       </div>
       <div className="bt-right">

@@ -1,21 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, API_URL, timeAgo, type ApiKeyRow, type ScriptLog, type ScriptRow } from '../api'
+import { CodeBlock as Code, CodeEditor } from '../components/Code'
 import { Empty, Spinner } from '../components/ui'
 import { Icon } from '../icons'
 import { useTitle } from '../router'
 import { useApp } from '../store'
 import { NeedLeague } from './Portfolio'
 import { Toggle } from './Event'
-
-function Code({ children }: { children: string }) {
-  const { toast } = useApp()
-  return (
-    <div className="codeblock">
-      <button className="icon-btn" aria-label="Copy" onClick={() => { void navigator.clipboard?.writeText(children); toast('Copied') }}><Icon name="copy" size={16} /></button>
-      <pre>{children}</pre>
-    </div>
-  )
-}
 
 function ApiKeys({ onKey }: { onKey: (k: string) => void }) {
   const { toast } = useApp()
@@ -157,16 +148,7 @@ function Scripts() {
             <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} aria-label="Script name" />
             <label className="inline-field">every <input type="number" min={10} value={draft.intervalSec} onChange={(e) => setDraft({ ...draft, intervalSec: Number(e.target.value) })} /> s</label>
           </div>
-          <textarea spellCheck={false} value={draft.code} onChange={(e) => setDraft({ ...draft, code: e.target.value })}
-            onKeyDown={(e) => {
-              if (e.key === 'Tab') {
-                e.preventDefault()
-                const t = e.currentTarget
-                const s = t.selectionStart
-                setDraft({ ...draft, code: `${draft.code.slice(0, s)}  ${draft.code.slice(t.selectionEnd)}` })
-                requestAnimationFrame(() => { t.selectionStart = t.selectionEnd = s + 2 })
-              }
-            }} />
+          <CodeEditor className="script-editor" label="Script code" value={draft.code} onChange={(code) => setDraft({ ...draft, code })} />
           <div className="row-gap">
             <button className="btn btn-primary" onClick={() => save()}>Save</button>
             <button className="btn btn-outline" disabled={busy} onClick={run}><Icon name="play" size={14} /> {busy ? 'Running…' : 'Run once'}</button>

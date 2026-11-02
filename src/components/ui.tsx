@@ -4,6 +4,7 @@ import { Icon } from '../icons'
 import { Link, navigate } from '../router'
 import { useApp } from '../store'
 import { Flash } from './Motion'
+import { useLiveQuote } from '../live'
 
 export function Avatar({ user, size = 32 }: { user: Pick<User, 'displayName' | 'avatarHue' | 'avatarUrl'> | null; size?: number }) {
   const hue = user?.avatarHue ?? 220
@@ -36,7 +37,7 @@ export function Gauge({ p }: { p: number }) {
         <path d={`M5 30 A${r} ${r} 0 0 1 53 30`} fill="none" stroke={color} strokeWidth="4.5" strokeLinecap="round"
           strokeDasharray={`${Math.max(0.001, p) * len} ${len}`} className="gauge-fill" />
       </svg>
-      <div className="gauge-text"><b><Flash value={p}>{pct(p)}</Flash></b><span>chance</span></div>
+      <div className="gauge-text"><b><Flash value={Math.round(p * 100)}>{pct(p)}</Flash></b><span>chance</span></div>
     </div>
   )
 }
@@ -95,7 +96,30 @@ export function ModeBadge({ mode }: { mode: 'mirror' | 'exchange' }) {
 
 /* ---------------- market card ---------------- */
 
-export function MarketCard({ event, index = 0 }: { event: PMEvent; index?: number }) {
+/** A market's price with live Polymarket ticks applied (not in exchange leagues, which price off their own book). */
+export function useLivePrice(m: Market | undefined) {
+  const { league } = useApp()
+  const q = useLiveQuote(m?.id, !!m && league?.mode !== 'exchange')
+  return q?.price ?? m?.price ?? 0
+}
+
+function LiveGauge({ m }: { m: Market }) {
+  return <Gauge p={useLivePrice(m)} />
+}
+
+function LiveRow({ m, quick }: { m: Market; quick: (m: Market, o: 'yes' | 'no') => (e: React.MouseEvent) => void }) {
+  const p = useLivePrice(m)
+  return (
+    <div className="mc-row">
+      <span className="mc-name">{m.title}</span>
+      <Flash value={Math.round(p * 100)} className="mc-pct">{pct(p)}</Flash>
+      <button className="mini-yes" onClick={quick(m, 'yes')}><span>Yes</span><span>{pct(p)}</span></button>
+      <button className="mini-no" onClick={quick(m, 'no')}><span>No</span><span>{pct(1 - p)}</span></button>
+    </div>
+  )
+}
+
+export function MarketCard({ event, index = 0, metric }: { event: PMEvent; index?: number; metric?: string | null }) {
   const { user, openAuth, openSheet } = useApp()
   const markets = event.markets.filter((m) => m.active && m.enabled)
   const isBinary = event.markets.length === 1
@@ -118,7 +142,7 @@ export function MarketCard({ event, index = 0 }: { event: PMEvent; index?: numbe
       <div className="mc-head">
         <Img src={event.icon || event.image} size={38} />
         <h3 className="mc-title">{event.title}</h3>
-        {isBinary && m0 && <Gauge p={m0.price} />}
+        {isBinary && m0 && <LiveGauge m={m0} />}
       </div>
       {isBinary && m0 ? (
         <div className="mc-binary">
@@ -127,18 +151,11 @@ export function MarketCard({ event, index = 0 }: { event: PMEvent; index?: numbe
         </div>
       ) : (
         <div className="mc-rows">
-          {top.map((m) => (
-            <div className="mc-row" key={m.id}>
-              <span className="mc-name">{m.title}</span>
-              <Flash value={m.price} className="mc-pct">{pct(m.price)}</Flash>
-              <button className="mini-yes" onClick={quick(m, 'yes')}><span>Yes</span><span>{pct(m.price)}</span></button>
-              <button className="mini-no" onClick={quick(m, 'no')}><span>No</span><span>{pct(1 - m.price)}</span></button>
-            </div>
-          ))}
+          {top.map((m) => <LiveRow key={m.id} m={m} quick={quick} />)}
         </div>
       )}
       <div className="mc-foot">
-        <span>{compactUsd(event.volume)} Vol.</span>
+        {metric ? <span className="mc-metric ellipsis">{metric}</span> : <span>{compactUsd(event.volume)} Vol.</span>}
         {event.markets.some((m) => m.leagueVolume > 0) && (
           <span className="league-vol">· {compactUsd(event.markets.reduce((s, m) => s + m.leagueVolume, 0))} league</span>
         )}

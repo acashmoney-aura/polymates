@@ -6,6 +6,7 @@ import { touchMarket } from './house.ts'
 import {
   biggestWins, leaderboard, leaderboardChart, memberProfile, parsePeriod, parseSort, pnlSources, type LeaderboardOptions,
 } from './leaderboard.ts'
+import { liveStats } from './live.ts'
 import { catalog, CATEGORIES, displayPrice, eventBySlug, marketById, pmBook, pmHistory } from './polymarket.ts'
 import { db, settlementKey } from './state.ts'
 import type { League, OrderSource, Outcome, OrderType, PMEvent, PMMarket, Side } from './types.ts'
@@ -50,6 +51,7 @@ export function serializeMarket(m: PMMarket, league?: League) {
     settled: league ? db.settlements.has(settlementKey(league.id, m.id)) : false,
     enabled: league ? marketEnabled(league, m) : true,
     description: m.description,
+    ...liveStats(m.id),
   }
 }
 
@@ -79,7 +81,31 @@ export function serializeEvent(e: PMEvent, league?: League, opts: { full?: boole
   }
 }
 
+/** Per-event numbers the market list sorts and filters on; each looks at the event's open markets. */
+function eventStats(e: PMEvent) {
+  let move24h = 0, move1h = 0, range1h = 0, spread = Infinity, competitive = Infinity
+  for (const id of e.marketIds) {
+    const m = catalog.markets.get(id)
+    if (!m?.active) continue
+    const p = displayPrice(m)
+    // ignore decided long shots so a 0.1% -> 0.3% blip doesn't top "movers"
+    const live = p > 0.02 && p < 0.98
+    if (live) move24h = Math.max(move24h, Math.abs(m.change24h ?? 0))
+    const s = liveStats(m.id)
+    if (live && m.volume24h > 5000) { move1h = Math.max(move1h, Math.abs(s.move1h)); range1h = Math.max(range1h, s.range1h) }
+    if (m.bestBid !== null && m.bestAsk !== null && m.volume24h > 1000) spread = Math.min(spread, m.bestAsk - m.bestBid)
+    if (m.volume24h > 1000) competitive = Math.min(competitive, Math.abs(p - 0.5))
+  }
+  return { move24h, move1h, range1h, spread, competitive }
+}
+
+export const EVENT_SORTS = [
+  'trending', 'volume24h', 'volume', 'liquidity', 'new', 'ending', 'movers', 'movers1h', 'volatile', 'competitive', 'spread', 'breaking',
+] as const
+
 function sortEvents(list: PMEvent[], sort: string) {
+  const stats = new Map<string, ReturnType<typeof eventStats>>()
+  const st = (e: PMEvent) => stats.get(e.id) ?? stats.set(e.id, eventStats(e)).get(e.id)!
   const by: Record<string, (a: PMEvent, b: PMEvent) => number> = {
     trending: (a, b) => a.rank - b.rank,
     volume: (a, b) => b.volume - a.volume,
@@ -88,6 +114,11 @@ function sortEvents(list: PMEvent[], sort: string) {
     new: (a, b) => Date.parse(b.createdAt ?? '0') - Date.parse(a.createdAt ?? '0'),
     ending: (a, b) => Date.parse(a.endDate ?? '9999') - Date.parse(b.endDate ?? '9999'),
     breaking: (a, b) => maxMove(b) - maxMove(a),
+    movers: (a, b) => st(b).move24h - st(a).move24h || b.volume24h - a.volume24h,
+    movers1h: (a, b) => st(b).move1h - st(a).move1h || b.volume24h - a.volume24h,
+    volatile: (a, b) => st(b).range1h - st(a).range1h || st(b).move24h - st(a).move24h,
+    competitive: (a, b) => st(a).competitive - st(b).competitive || b.volume24h - a.volume24h,
+    spread: (a, b) => st(a).spread - st(b).spread || b.volume24h - a.volume24h,
   }
   return list.sort(by[sort] ?? by.trending)
 }
@@ -101,6 +132,9 @@ function maxMove(e: PMEvent) {
   return best
 }
 
+const ENDS: Record<string, number> = { '1d': 86_400_000, '1w': 7 * 86_400_000, '1m': 30 * 86_400_000 }
+const BANDS: Record<string, [number, number]> = { longshot: [0, 0.15], tossup: [0.35, 0.65], favorite: [0.85, 1] }
+
 export interface ListEventsInput {
   leagueId?: string
   tag?: string
@@ -109,6 +143,15 @@ export interface ListEventsInput {
   limit?: number
   offset?: number
   includeDisabled?: boolean
+  /** only events ending within 1d | 1w | 1m */
+  ends?: string
+  /** only events with a market priced in longshot (<15%) | tossup (35-65%) | favorite (>85%) */
+  band?: string
+  /** binary (one market) | multi (several outcomes) */
+  kind?: string
+  /** minimum 24h volume in USD */
+  minVolume24h?: number
+  minLiquidity?: number
 }
 
 /* ---------------- the API (scoped to one user) ---------------- */
@@ -163,6 +206,23 @@ export function agentApi(userId: string, source: OrderSource) {
             e.marketIds.some((id) => catalog.markets.get(id)?.groupTitle.toLowerCase().includes(q)),
         )
       }
+      const endsMs = input.ends ? ENDS[input.ends] : undefined
+      if (endsMs) {
+        const now = Date.now()
+        list = list.filter((e) => { const t = Date.parse(e.endDate ?? ''); return t > now && t - now <= endsMs })
+      }
+      const band = input.band ? BANDS[input.band] : undefined
+      if (band) {
+        list = list.filter((e) => e.marketIds.some((id) => {
+          const m = catalog.markets.get(id)
+          const p = m?.active ? displayPrice(m) : -1
+          return p >= band[0] && p <= band[1]
+        }))
+      }
+      if (input.kind === 'binary') list = list.filter((e) => e.marketIds.length === 1)
+      if (input.kind === 'multi') list = list.filter((e) => e.marketIds.length > 1)
+      if (input.minVolume24h) list = list.filter((e) => e.volume24h >= Number(input.minVolume24h))
+      if (input.minLiquidity) list = list.filter((e) => e.liquidity >= Number(input.minLiquidity))
       const sort = input.sort ?? (tag === 'new' ? 'new' : tag === 'breaking' ? 'breaking' : 'trending')
       sortEvents(list, sort)
       const limit = Math.min(Math.max(Number(input.limit) || 20, 1), 100)

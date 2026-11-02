@@ -22,6 +22,8 @@ export interface Market {
   change24h: number | null; volume: number; volume24h: number; leagueVolume: number; endDate: string | null
   tick: number; active: boolean; resolved: boolean; payout: [number, number] | null; settled: boolean
   enabled: boolean; description: string
+  /** live: price change and high-low range over the last hour */
+  move1h?: number; range1h?: number
 }
 export interface PMEvent {
   id: string; slug: string; title: string; description?: string; resolutionSource?: string; image: string; icon: string
