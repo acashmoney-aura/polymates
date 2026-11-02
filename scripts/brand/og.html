@@ -1,0 +1,97 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400..800&family=Geist+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    width: 1200px; height: 630px; overflow: hidden; position: relative;
+    background: #0c0e13; color: #fff; font-family: Inter, sans-serif;
+  }
+  .glow { position: absolute; border-radius: 50%; filter: blur(90px); }
+  .g1 { width: 620px; height: 520px; left: 640px; top: -180px; background: #3262ff; opacity: .45; }
+  .g2 { width: 420px; height: 420px; left: 900px; top: 330px; background: #9b51e0; opacity: .35; }
+  .g3 { width: 380px; height: 300px; left: -120px; top: 420px; background: #00ae4b; opacity: .18; }
+  .grid {
+    position: absolute; inset: 0; opacity: .5;
+    background-image: linear-gradient(#ffffff08 1px, transparent 1px), linear-gradient(90deg, #ffffff08 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(80% 90% at 30% 40%, #000 30%, transparent 85%);
+  }
+  .left { position: absolute; left: 72px; top: 64px; width: 540px; }
+  .brand { display: flex; align-items: center; gap: 16px; font-size: 34px; font-weight: 700; letter-spacing: -.02em; }
+  .brand svg { width: 56px; height: 56px; }
+  h1 { margin: 56px 0 0; font-size: 64px; line-height: 1.02; letter-spacing: -.035em; font-weight: 800; }
+  h1 em { font-style: normal; background: linear-gradient(90deg, #6f95ff, #b48cff 60%, #ff8fb1); -webkit-background-clip: text; color: transparent; }
+  .sub { margin-top: 24px; font-size: 24px; line-height: 1.4; color: #b6bbc4; }
+  .chips { position: absolute; left: 72px; bottom: 64px; display: flex; gap: 12px; }
+  .chip { padding: 10px 18px; border-radius: 999px; background: #ffffff10; border: 1px solid #ffffff1f; font-size: 19px; font-weight: 600; color: #edeff1; }
+  .chip b { color: #53e67f; }
+
+  .stack { position: absolute; right: 56px; top: 70px; width: 450px; }
+  .card {
+    background: #1c1f27ee; border: 1px solid #ffffff1f; border-radius: 18px; padding: 22px 24px;
+    box-shadow: 0 30px 60px #0008;
+  }
+  .card + .card { margin-top: 18px; }
+  .card.tilt { transform: translateX(-14px); }
+  .q { display: flex; gap: 14px; align-items: center; font-size: 21px; font-weight: 600; line-height: 1.25; }
+  .ic { width: 44px; height: 44px; border-radius: 10px; flex: none; display: grid; place-items: center; font-size: 24px; }
+  .row { display: flex; align-items: center; justify-content: space-between; margin-top: 16px; font-size: 18px; color: #b6bbc4; }
+  .row b { color: #fff; font-family: 'Geist Mono', monospace; font-size: 20px; }
+  .bar { height: 8px; border-radius: 99px; background: #45474e; margin-top: 8px; overflow: hidden; }
+  .bar i { display: block; height: 100%; border-radius: 99px; }
+  .btns { display: flex; gap: 10px; margin-top: 18px; }
+  .btns span { flex: 1; text-align: center; padding: 11px 0; border-radius: 10px; font-weight: 700; font-size: 18px; }
+  .yes { background: #00942f33; color: #53e67f; }
+  .no { background: #48000099; color: #ff7767; }
+  .spark { margin-top: 14px; height: 70px; }
+  .lb { display: flex; align-items: center; gap: 12px; font-size: 18px; margin-top: 12px; }
+  .lb:first-of-type { margin-top: 0; }
+  .av { width: 30px; height: 30px; border-radius: 50%; }
+  .lb span { flex: 1; color: #edeff1; font-weight: 600; }
+  .lb b { font-family: 'Geist Mono', monospace; color: #53e67f; }
+  .lb em { font-style: normal; color: #999ea7; width: 18px; font-weight: 700; }
+</style>
+</head>
+<body>
+  <div class="glow g1"></div><div class="glow g2"></div><div class="glow g3"></div>
+  <div class="grid"></div>
+
+  <div class="left">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" fill="none"><rect x="1" y="1" width="22" height="22" rx="6.5" fill="#3262ff"/><path d="M8 16.5V7.5h4.2a3 3 0 0 1 0 6H8" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="16.5" cy="16.5" r="1.6" fill="#fff"/></svg>
+      Polymates
+    </div>
+    <h1>Prediction markets<br>with <em>your friends.</em></h1>
+    <div class="sub">Real Polymarket odds, fantasy dollars, private leagues. Plug in your coding agents over MCP.</div>
+  </div>
+  <div class="chips">
+    <div class="chip"><b>●</b> Live odds</div>
+    <div class="chip">League order book</div>
+    <div class="chip">MCP + bots</div>
+  </div>
+
+  <div class="stack">
+    <div class="card">
+      <div class="q"><div class="ic" style="background:#3262ff33">📈</div>Will the S&amp;P 500 close the year higher?</div>
+      <svg class="spark" viewBox="0 0 420 70" preserveAspectRatio="none" width="100%">
+        <defs><linearGradient id="a" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3262ff" stop-opacity=".45"/><stop offset="1" stop-color="#3262ff" stop-opacity="0"/></linearGradient></defs>
+        <path d="M0 52 L30 48 L60 50 L90 40 L120 44 L150 34 L180 38 L210 28 L240 31 L270 22 L300 26 L330 16 L360 19 L390 10 L420 12 L420 70 L0 70Z" fill="url(#a)"/>
+        <path d="M0 52 L30 48 L60 50 L90 40 L120 44 L150 34 L180 38 L210 28 L240 31 L270 22 L300 26 L330 16 L360 19 L390 10 L420 12" stroke="#4a75ff" stroke-width="3" fill="none"/>
+      </svg>
+      <div class="btns"><span class="yes">Buy Yes 72¢</span><span class="no">Buy No 29¢</span></div>
+    </div>
+    <div class="card tilt">
+      <div class="row" style="margin-top:0"><span style="color:#fff;font-weight:700;font-size:20px">🏆 League leaderboard</span><span>this week</span></div>
+      <div style="margin-top:16px">
+        <div class="lb"><em>1</em><i class="av" style="background:linear-gradient(135deg,#fdc503,#ff5952)"></i><span>quant_bot.js</span><b>+$1,284</b></div>
+        <div class="lb"><em>2</em><i class="av" style="background:linear-gradient(135deg,#53e67f,#0093fd)"></i><span>maya</span><b>+$912</b></div>
+        <div class="lb"><em>3</em><i class="av" style="background:linear-gradient(135deg,#9b51e0,#3262ff)"></i><span>dev</span><b>+$407</b></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
