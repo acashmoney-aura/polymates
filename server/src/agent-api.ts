@@ -1,8 +1,11 @@
 import {
-  cancelAll, cancelOrder, eventEnabled, getMember, HOUSE_USER, lastLeagueTrade, leaderboard, leagueBook, leagueVolume as leagueVolumeOf,
+  cancelAll, cancelOrder, eventEnabled, getMember, HOUSE_USER, lastLeagueTrade, leagueBook, leagueVolume as leagueVolumeOf,
   leagueYesPrice, marketEnabled, placeOrder, portfolio,
 } from './engine.ts'
 import { touchMarket } from './house.ts'
+import {
+  biggestWins, leaderboard, leaderboardChart, memberProfile, parsePeriod, parseSort, pnlSources, type LeaderboardOptions,
+} from './leaderboard.ts'
 import { catalog, CATEGORIES, displayPrice, eventBySlug, marketById, pmBook, pmHistory } from './polymarket.ts'
 import { db, settlementKey } from './state.ts'
 import type { League, OrderSource, Outcome, OrderType, PMEvent, PMMarket, Side } from './types.ts'
@@ -290,8 +293,31 @@ export function agentApi(userId: string, source: OrderSource) {
       return { cancelled: cancelAll(league(leagueId).id, userId, marketId).length }
     },
 
-    getLeaderboard(leagueId?: string) {
-      return leaderboard(league(leagueId).id)
+    /** league standings over a period (day/week/month/all), sorted by pnl, volume or return */
+    getLeaderboard(leagueId?: string, opts: { period?: unknown; sort?: unknown; category?: string; source?: string } = {}) {
+      const o: LeaderboardOptions = { period: parsePeriod(opts.period), sort: parseSort(opts.sort), category: opts.category, source: opts.source }
+      return leaderboard(league(leagueId).id, o)
+    },
+
+    /** largest closed winning positions in the period: cost -> payout */
+    getBiggestWins(leagueId?: string, opts: { period?: unknown; category?: string; limit?: number } = {}) {
+      return biggestWins(league(leagueId).id, { period: parsePeriod(opts.period ?? 'month'), category: opts.category, limit: opts.limit })
+    },
+
+    /** P&L-over-time race for the top members (or the given user ids) */
+    getLeaderboardChart(leagueId?: string, opts: { period?: unknown; sort?: unknown; category?: string; users?: string[]; limit?: number } = {}) {
+      return leaderboardChart(league(leagueId).id, {
+        period: parsePeriod(opts.period), sort: parseSort(opts.sort), category: opts.category, users: opts.users, limit: opts.limit,
+      })
+    },
+
+    /** a member's stats, open positions, recent trades and closed positions */
+    getMemberProfile(member: string, leagueId?: string, opts: { period?: unknown } = {}) {
+      return memberProfile(league(leagueId).id, member, { period: parsePeriod(opts.period) })
+    },
+
+    leaderboardSources() {
+      return pnlSources()
     },
 
     categories() {

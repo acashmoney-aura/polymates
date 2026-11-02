@@ -60,8 +60,21 @@ Roles: the **owner** can do everything; **admins** can change settings, switch m
 | POST | `/api/leagues/:id/leave` | member | an owner must transfer first unless they are the only member |
 | POST | `/api/leagues/:id/reset` | owner | `{confirm: '<league name>'}`; new season: orders, positions and trades cleared, cash reset |
 | DELETE | `/api/leagues/:id` | owner | `{confirm: '<league name>'}`; deletes everything |
-| GET | `/api/leagues/:id/leaderboard` | ranked by P&L |
-| GET | `/api/leagues/:id/activity` | feed |
+| GET | `/api/leagues/:id/leaderboard` | member | `?period=day\|week\|month\|all&sort=pnl\|volume\|return&category=<tag>`; see [Leaderboards](#leaderboards) |
+| GET | `/api/leagues/:id/biggest-wins` | member | `?period=&category=&limit=`; largest winning closed positions, `cost → payout` |
+| GET | `/api/leagues/:id/leaderboard/chart` | member | `?period=&category=&users=id,id`; P&L race (top 5 by default) |
+| GET | `/api/leagues/:id/members/:userId/profile` | member | `?period=`; stats, open positions, recent trades, closed positions, chart. `:userId` may be a username |
+| GET | `/api/leagues/:id/activity` | member | feed |
+
+### Leaderboards
+
+P&L over a period is the change in each member's mark-to-market wealth: trades, settlements and price moves all count. `day` is the last 24 hours, `week` 7 days, `month` 30 days, `all` the whole season (all-time P&L equals `portfolio.pnl`). Orders placed by a member's bots, scripts, API keys and MCP agents count as that member.
+
+Each row: `rank, period, userId, username, displayName, avatarHue, avatarUrl, role, pnl, pnlPct` (return on equity at the period start), `volume, trades, value, cash, positions, bots, wins, losses, winRate` (resolved markets only, `null` if none), `bestTrade {marketId, title, cost, payout, pnl, ...}`, `streak {kind: 'win'|'loss', count}` (closed positions, most recent first) and `breakdown` (per P&L source, e.g. `{predictions: {pnl, volume, trades}}`).
+
+`category` is a Polymarket tag slug from `/api/categories` and only counts prediction markets in that category. `source=predictions` (or another registered source) limits the totals to one book. Biggest wins are positions that closed in the period (sold out or resolved) with `payout > cost`.
+
+The server records each member's P&L hourly (thinned to daily after a week) so past values on the chart use the marks of the time.
 
 ### Markets
 `?league=<id>` is optional on all of these. With it, prices and books are the league's (exchange mode) and `enabled` reflects the league's toggles.
@@ -140,7 +153,9 @@ claude mcp add --transport http polymates https://YOUR-API/mcp --header "Authori
 { "mcpServers": { "polymates": { "url": "https://YOUR-API/mcp", "headers": { "Authorization": "Bearer pm_..." } } } }
 ```
 
-Tools: `whoami, list_leagues, create_league, join_league, get_league, update_league, set_event_enabled, set_market_enabled, set_member_role, remove_member, transfer_ownership, leave_league, reset_season, delete_league, search_markets, get_price_history, scan_markets, list_strategy_templates, run_backtest, get_event, get_market, get_order_book, get_portfolio, place_order, cancel_order, cancel_all_orders, list_orders, list_trades, get_leaderboard, list_scripts, upload_script, run_script, get_script_logs, set_script_enabled, delete_script`. Omit `league_id` to use your first league.
+Tools: `whoami, list_leagues, create_league, join_league, get_league, update_league, set_event_enabled, set_market_enabled, set_member_role, remove_member, transfer_ownership, leave_league, reset_season, delete_league, search_markets, get_price_history, scan_markets, list_strategy_templates, run_backtest, get_event, get_market, get_order_book, get_portfolio, place_order, cancel_order, cancel_all_orders, list_orders, list_trades, get_leaderboard, get_biggest_wins, get_member_profile, list_scripts, upload_script, run_script, get_script_logs, set_script_enabled, delete_script`. Omit `league_id` to use your first league.
+
+`get_leaderboard {period?: 'day'|'week'|'month'|'all', sort?: 'pnl'|'volume'|'return', category?}` returns the rows described under [Leaderboards](#leaderboards); `get_biggest_wins {period? = 'month', category?, limit?}` and `get_member_profile {member, period?}` match their REST endpoints.
 
 ## Hosted scripts
 

@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import type {
-  Activity, ApiKey, League, Member, Order, Position, Script, ScriptLog, Session, Settlement, Trade, User,
+  Activity, ApiKey, EquityPoint, League, Member, Order, Position, Script, ScriptLog, Session, Settlement, Trade, User,
 } from './types.ts'
 
 /**
@@ -22,6 +22,8 @@ export const db = {
   scripts: new Map<string, Script>(),
   settlements: new Map<string, Settlement>(),
   activity: [] as Activity[],
+  /** keyed by memberKey; hourly for the last week, daily before that */
+  equity: new Map<string, EquityPoint[]>(),
 }
 
 export const scriptLogs = new Map<string, ScriptLog[]>()
@@ -47,6 +49,7 @@ interface Snapshot {
   scripts: Script[]
   settlements: Settlement[]
   activity: Activity[]
+  equity?: { key: string; points: [number, number][] }[]
 }
 
 function toSnapshot(): Snapshot {
@@ -73,6 +76,7 @@ function toSnapshot(): Snapshot {
     scripts: [...db.scripts.values()],
     settlements: [...db.settlements.values()],
     activity: db.activity,
+    equity: [...db.equity].map(([key, pts]) => ({ key, points: pts.map((p) => [p.ts, p.pnl] as [number, number]) })),
   }
 }
 
@@ -91,6 +95,7 @@ function fromSnapshot(s: Snapshot) {
   for (const sc of s.scripts) db.scripts.set(sc.id, sc)
   for (const st of s.settlements ?? []) db.settlements.set(settlementKey(st.leagueId, st.marketId), st)
   db.activity = s.activity ?? []
+  for (const e of s.equity ?? []) db.equity.set(e.key, e.points.map(([ts, pnl]) => ({ ts, pnl })))
 }
 
 interface Store {

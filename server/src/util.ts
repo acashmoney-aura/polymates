@@ -2,7 +2,9 @@ import crypto from 'node:crypto'
 import { EventEmitter } from 'node:events'
 
 export const id = (prefix: string) => `${prefix}_${crypto.randomBytes(9).toString('base64url')}`
-export const now = () => Date.now()
+/** dev only (DEV_TOOLS=1): shift the game clock to backdate trades for tests and seed data */
+export const clock = { offsetMs: 0 }
+export const now = () => Date.now() + clock.offsetMs
 
 /** money is kept to 1e-6 dollars, shares to 1e-4, prices to 1e-4 */
 export const money = (x: number) => Math.round(x * 1e6) / 1e6

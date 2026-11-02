@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
-  api, cents, qs, shares, signedUsd, timeAgo, usd, type ActivityRow, type LeaderRow, type OrderRow, type TradeRow,
+  api, cents, qs, shares, signedUsd, timeAgo, usd, type ActivityRow, type OrderRow, type TradeRow,
 } from '../api'
 import { Avatar, Empty, Img, ModeBadge, Spinner } from '../components/ui'
 import { Icon } from '../icons'
@@ -150,72 +150,6 @@ export function Portfolio() {
           </div>
         )
       )}
-    </div>
-  )
-}
-
-export function Leaderboard() {
-  const { user, leagueId, league } = useApp()
-  const [rows, setRows] = useState<LeaderRow[] | null>(null)
-  const [sort, setSort] = useState<'pnl' | 'volume'>('pnl')
-  const [activity, setActivity] = useState<ActivityRow[]>([])
-  useTitle('Leaderboard')
-  const load = useCallback(() => {
-    if (!leagueId) return
-    api<LeaderRow[]>(`/api/leagues/${leagueId}/leaderboard`).then(setRows).catch(() => {})
-    api<ActivityRow[]>(`/api/leagues/${leagueId}/activity`).then(setActivity).catch(() => {})
-  }, [leagueId])
-  useEffect(load, [load])
-  useStream((e) => e.type === 'trade' || e.type === 'resolve' || e.type === 'activity', load)
-  if (!user || !leagueId) return <NeedLeague what="leaderboard" />
-  const sorted = [...(rows ?? [])].sort((a, b) => (sort === 'pnl' ? b.pnl - a.pnl : b.volume - a.volume))
-  const medal = ['#f5c542', '#c0c7d1', '#d08a4c']
-
-  return (
-    <div className="wrap page lb-page">
-      <div className="lb-main">
-        <h1>Leaderboard</h1>
-        <p className="muted">{league?.name} · {rows?.length ?? 0} players · started with {usd(league?.startingBalance ?? 0, 0)}</p>
-        <div className="lb-cols">
-          <span className="grow" />
-          <button className={sort === 'pnl' ? 'active' : ''} onClick={() => setSort('pnl')}>Profit/Loss</button>
-          <button className={sort === 'volume' ? 'active' : ''} onClick={() => setSort('volume')}>Volume</button>
-        </div>
-        {rows && sorted.length >= 2 && (
-          <div className="podium">
-            {[1, 0, 2].filter((i) => sorted[i]).map((i) => {
-              const r = sorted[i]
-              return (
-                <div key={r.userId} className={`podium-col p${i + 1}`} style={{ animationDelay: `${[1, 0, 2].indexOf(i) * 120}ms` }}>
-                  <Avatar user={r} size={i === 0 ? 64 : 52} />
-                  <b className="ellipsis">{r.displayName}</b>
-                  <span className={r.pnl >= 0 ? 'yes-accent' : 'no-color'}>{signedUsd(r.pnl)}</span>
-                  <div className="podium-block" style={{ background: `linear-gradient(180deg, ${medal[i]}55, transparent)`, borderColor: `${medal[i]}88` }}>{i + 1}</div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-        {!rows ? <Spinner /> : sorted.map((r, i) => (
-          <div key={r.userId} className={`lb-row ${r.userId === user.id ? 'me' : ''}`} style={{ animationDelay: `${i * 35}ms` }}>
-            <span className="rank">{i + 1}</span>
-            <span className="lb-av">
-              <Avatar user={r} size={40} />
-              {i < 3 && <i style={{ background: medal[i] }} />}
-            </span>
-            <span className="lb-name">
-              <b>{r.displayName}</b>
-              <small className="muted">@{r.username} · {r.positions} positions{r.bots ? ` · ${r.bots} bot${r.bots > 1 ? 's' : ''}` : ''}</small>
-            </span>
-            <span className={`lb-pnl ${r.pnl >= 0 ? 'yes-accent' : 'no-color'}`}>{signedUsd(r.pnl)}</span>
-            <span className="lb-vol">{usd(r.volume, 0)}</span>
-          </div>
-        ))}
-      </div>
-      <aside className="card lb-aside">
-        <h3>League activity</h3>
-        <ActivityList rows={activity.slice(0, 30)} />
-      </aside>
     </div>
   )
 }
