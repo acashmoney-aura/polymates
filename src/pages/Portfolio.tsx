@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   api, cents, qs, shares, signedUsd, timeAgo, usd, type ActivityRow, type LeaderRow, type OrderRow, type TradeRow,
 } from '../api'
+import { RiskView } from '../components/RiskView'
 import { Avatar, Empty, Img, ModeBadge, Spinner } from '../components/ui'
 import { Icon } from '../icons'
 import { Link, useTitle } from '../router'
@@ -26,7 +27,7 @@ export function NeedLeague({ what }: { what: string }) {
 
 export function Portfolio() {
   const { user, portfolio, leagueId, league, toast } = useApp()
-  const [tab, setTab] = useState<'positions' | 'orders' | 'history'>('positions')
+  const [tab, setTab] = useState<'positions' | 'orders' | 'history' | 'risk'>('positions')
   const [orders, setOrders] = useState<OrderRow[] | null>(null)
   const [trades, setTrades] = useState<TradeRow[] | null>(null)
   const [search, setSearch] = useState('')
@@ -80,6 +81,7 @@ export function Portfolio() {
         <button className={tab === 'positions' ? 'active' : ''} onClick={() => setTab('positions')}>Positions</button>
         <button className={tab === 'orders' ? 'active' : ''} onClick={() => setTab('orders')}>Open orders {orders?.length ? `(${orders.length})` : ''}</button>
         <button className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}>History</button>
+        <button className={tab === 'risk' ? 'active' : ''} onClick={() => setTab('risk')}>Risk</button>
       </div>
 
       {tab === 'positions' && (
@@ -129,6 +131,7 @@ export function Portfolio() {
           </div>
         )
       )}
+      {tab === 'risk' && <RiskView />}
       {tab === 'history' && (
         !trades ? <Spinner /> : !trades.length ? <Empty title="No trades yet" /> : (
           <div className="ptable">

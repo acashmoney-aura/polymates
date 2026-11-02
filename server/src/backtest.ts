@@ -1,5 +1,5 @@
 import { getQuickJS, shouldInterruptAfterDeadline } from 'quickjs-emscripten'
-import { catalog, marketById, pmHistory } from './polymarket.ts'
+import { catalog, marketById, pmBook, pmHistory } from './polymarket.ts'
 import type { Outcome, PMMarket, Side } from './types.ts'
 import { fail, money, px, shares } from './util.ts'
 
@@ -118,6 +118,79 @@ export async function runBacktest(input: BacktestInput) {
   running++
   try {
     return await run(input, ids)
+  } finally {
+    running--
+  }
+}
+
+/* ---------------- parameter sweep ---------------- */
+
+export interface SweepInput extends BacktestInput {
+  /** 1-2 numeric constants in the code to vary, e.g. [{ name: 'FAST', values: [3, 6, 9] }] */
+  params: { name: string; values: number[] }[]
+}
+
+const MAX_SWEEP_CELLS = 30
+const SWEEP_BUDGET_MS = 90_000
+
+/** Find numeric constants declared as `const NAME = 12` (or in a `const A = 1, B = 2` list). */
+export function sweepableParams(code: string) {
+  const out: { name: string; value: number }[] = []
+  for (const decl of code.matchAll(/^(?:const|let|var)\s+([^;\n]+)/gm)) {
+    for (const m of decl[1].matchAll(/\b([A-Za-z_$][\w$]*)\s*=\s*(-?\d+(?:\.\d+)?)\s*(?=,|$|;|\/\/)/g)) {
+      if (!out.some((p) => p.name === m[1])) out.push({ name: m[1], value: Number(m[2]) })
+    }
+  }
+  return out
+}
+
+function substitute(code: string, name: string, value: number) {
+  const re = new RegExp(`(\\b${name.replace(/[$]/g, '\\$')}\\s*=\\s*)(-?\\d+(?:\\.\\d+)?)`)
+  if (!re.test(code)) fail(400, `Parameter ${name} is not a numeric constant in the code`)
+  return code.replace(re, `$1${value}`)
+}
+
+/**
+ * Run a strategy over a grid of 1-2 parameters and report Sharpe, return and
+ * drawdown per cell. Uses one backtester slot and runs the cells one after another.
+ */
+export async function runSweep(input: SweepInput) {
+  if (typeof input.code !== 'string' || !input.code.trim()) fail(400, 'code is required')
+  const params = (input.params ?? []).slice(0, 2).map((p) => ({
+    name: String(p?.name ?? ''),
+    values: [...new Set((p?.values ?? []).map(Number).filter(Number.isFinite))].slice(0, 12),
+  }))
+  if (!params.length || params.some((p) => !/^[A-Za-z_$][\w$]*$/.test(p.name) || !p.values.length)) fail(400, 'params must be 1-2 { name, values[] } entries')
+  if (params.length === 2 && params[0].name === params[1].name) fail(400, 'Pick two different parameters')
+  const xs = params[0].values
+  const ys = params[1]?.values ?? [null]
+  if (xs.length * ys.length > MAX_SWEEP_CELLS) fail(400, `At most ${MAX_SWEEP_CELLS} combinations per sweep`)
+  for (const p of params) substitute(input.code, p.name, p.values[0])
+  const ids = [...new Set((input.marketIds ?? []).map(String))].slice(0, MAX_MARKETS)
+  if (!ids.length) fail(400, `Pick 1-${MAX_MARKETS} markets to backtest on`)
+  if (running >= 3) fail(429, 'Backtester is busy, try again in a few seconds')
+  running++
+  const started = Date.now()
+  try {
+    const cells = []
+    let truncated = false
+    for (const y of ys) {
+      for (const x of xs) {
+        if (Date.now() - started > SWEEP_BUDGET_MS) { truncated = true; break }
+        let code = substitute(input.code, params[0].name, x)
+        if (y !== null) code = substitute(code, params[1].name, y)
+        const r = await run({ ...input, code }, ids)
+        cells.push({
+          x, y, ok: r.ok, error: r.error,
+          sharpe: r.stats.sharpe, totalReturn: r.stats.totalReturn, maxDrawdown: r.stats.maxDrawdown,
+          trades: r.stats.trades, winRate: r.stats.winRate, finalEquity: r.stats.finalEquity,
+        })
+      }
+      if (truncated) break
+    }
+    const ok = cells.filter((c) => c.ok)
+    const best = ok.reduce<(typeof cells)[number] | null>((b, c) => (!b || c.sharpe > b.sharpe ? c : b), null)
+    return { params, cells, best, truncated, ms: Date.now() - started }
   } finally {
     running--
   }
@@ -492,7 +565,18 @@ async function run(input: BacktestInput, ids: string[]) {
 
 /* ---------------- scanner ---------------- */
 
+interface ClobCheck { checkedAt: number; sumAsk: number | null; sumBid: number | null; arb: string | null; size: number; profit: number; edge: number | null }
+
+let scanCache: { at: number; data: Awaited<ReturnType<typeof scan>> } | null = null
+let scanPending: ReturnType<typeof scan> | null = null
+
 export async function scanner() {
+  if (scanCache && Date.now() - scanCache.at < 30_000) return scanCache.data
+  scanPending ??= scan().then((data) => { scanCache = { at: Date.now(), data }; return data }).finally(() => { scanPending = null })
+  return scanPending
+}
+
+async function scan() {
   const events = [...catalog.events.values()].filter((e) => !e.closed)
   const mk = (id: string) => catalog.markets.get(id)
   const mid = (m: PMMarket) =>
@@ -518,6 +602,33 @@ export async function scanner() {
     .filter((x) => x.outcomes >= 3 && x.complete && x.volume > 50_000)
     .sort((a, b) => Math.abs(b.sumMid - 1) - Math.abs(a.sumMid - 1))
     .slice(0, 25)
+    .map((x) => ({ ...x, clob: null as ClobCheck | null }))
+
+  // Gamma's best bid/ask can be stale. Confirm the top candidates against the
+  // live CLOB books before flagging an arb, and size it by top-of-book depth.
+  const candidates = overround.filter((x) => x.outcomes <= 40).sort((a, b) => Number(!!b.arb) - Number(!!a.arb)).slice(0, 6)
+  await Promise.all(candidates.map(async (x) => {
+    const ev = events.find((e) => e.slug === x.eventSlug)
+    if (!ev) return
+    const ms = ev.marketIds.map(mk).filter((m): m is PMMarket => !!m && m.active)
+    try {
+      const books = await Promise.all(ms.map((m) => pmBook(m, 'yes', 15_000)))
+      if (books.some((b) => !b.asks.length || !b.bids.length)) {
+        x.clob = { checkedAt: Date.now(), sumAsk: null, sumBid: null, arb: null, size: 0, profit: 0, edge: null }
+        return
+      }
+      const sumAsk = books.reduce((a, b) => a + b.asks[0].price, 0)
+      const sumBid = books.reduce((a, b) => a + b.bids[0].price, 0)
+      const arb = sumAsk < 1 - 1e-6 ? 'buy-all' : sumBid > 1 + 1e-6 ? 'sell-all' : null
+      // the arb is only as big as the thinnest top-of-book level across every leg
+      const size = arb === 'buy-all' ? Math.min(...books.map((b) => b.asks[0].size)) : arb === 'sell-all' ? Math.min(...books.map((b) => b.bids[0].size)) : 0
+      const edge = arb === 'buy-all' ? 1 - sumAsk : arb === 'sell-all' ? sumBid - 1 : null
+      x.clob = { checkedAt: Date.now(), sumAsk, sumBid, arb, size: money(size), profit: money((edge ?? 0) * size), edge }
+      x.arb = arb
+    } catch { /* keep the Gamma estimate */ }
+  }))
+  // live-confirmed arbs first, then by how far the mids are from 100%
+  overround.sort((a, b) => Number(!!b.clob?.arb) - Number(!!a.clob?.arb))
 
   const live = [...catalog.markets.values()].filter((m) => m.active && !m.resolved)
   const movers = live

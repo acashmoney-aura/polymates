@@ -4,6 +4,8 @@ import {
   type PMEvent, type TradeRow,
 } from '../api'
 import { PriceChart, RANGES, SERIES_COLORS, useHistory, type Range } from '../components/Chart'
+import { EventCurve } from '../components/EventCurve'
+import { Microstructure } from '../components/Microstructure'
 import { OrderBook } from '../components/OrderBook'
 import { StatsForNerds } from '../components/StatsForNerds'
 import { TradePanel } from '../components/TradePanel'
@@ -260,6 +262,10 @@ export function EventPage({ slug }: { slug: string }) {
             <OrderBook market={selected} outcome={outcome} onOutcome={setOutcome} onPrice={(p) => setPreset({ price: p, n: Date.now() })} />
           </>
         )}
+
+        {multi && <EventCurve event={event} onPick={setMarketId} />}
+
+        {selected.active && <Microstructure market={selected} />}
 
         <StatsForNerds market={selected} event={event} />
 
