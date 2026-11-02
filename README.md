@@ -2,7 +2,7 @@
 
 Polymarket with your friends. Real Polymarket markets, fantasy dollars, private leagues, and an API that coding agents can trade through.
 
-**Live site:** https://acashmoney-aura.github.io/polymates/
+**Live site:** https://poly.floatingkeys.com
 
 ## What it does
 
