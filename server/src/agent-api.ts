@@ -93,7 +93,7 @@ function maxMove(e: PMEvent) {
   let best = 0
   for (const id of e.marketIds) {
     const m = catalog.markets.get(id)
-    if (m?.active && m.volume24h > 5000) best = Math.max(best, Math.abs(m.change24h ?? 0))
+    if (m?.active && m.volume24h > 5000 && m.price > 0.03 && m.price < 0.97) best = Math.max(best, Math.abs(m.change24h ?? 0))
   }
   return best
 }

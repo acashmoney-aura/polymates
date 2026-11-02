@@ -1,909 +1,137 @@
-import './App.css'
-import { useEffect, useMemo, useState } from 'react'
-import type { UIEvent } from 'react'
-import type { Session } from '@supabase/supabase-js'
-import logoMark from '/polymates-mark.svg'
-import { useLeagueRuntime } from './lib/league-runtime'
-import { productSpec } from './lib/product-spec'
-import { describeRuntimeMode, hasSupabaseEnv, supabase } from './lib/supabase'
-import { fetchPolymarketAccountPositions, fetchPolymarketPriceHistory } from './lib/polymarket'
-import type { Market, MarketPricePoint, PolymarketAccountPosition, ResolutionItem } from './lib/types'
+import { useState } from 'react'
+import { api, type User } from './api'
+import { Header, MobileNav } from './components/Header'
+import { Modal } from './components/ui'
+import { Icon, Logo } from './icons'
+import { Developers } from './pages/Developers'
+import { EventPage, SheetHost } from './pages/Event'
+import { Home, SearchPage } from './pages/Home'
+import { JoinPage, LeaguePage } from './pages/League'
+import { ActivityPage, Leaderboard, Portfolio } from './pages/Portfolio'
+import { Link, useLocation, useTitle } from './router'
+import { AppProvider, useApp } from './store'
 
-type AppView = 'dashboard' | 'markets' | 'portfolio' | 'league' | 'admin' | 'connected'
-
-const navItems: { id: AppView; label: string; icon: string }[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: 'D' },
-  { id: 'markets', label: 'Markets', icon: 'M' },
-  { id: 'portfolio', label: 'Portfolio', icon: 'P' },
-  { id: 'league', label: 'League', icon: 'L' },
-  { id: 'connected', label: 'Connected', icon: 'C' },
-  { id: 'admin', label: 'Admin', icon: 'A' },
-]
-
-const leagueRules = [
-  '$10,000 fantasy starting balance',
-  '$2,000 weekly bonus',
-  'YES / NO simulated prediction markets',
-  'Markets close at kickoff or event lock',
-  'Leaderboard by fantasy portfolio value',
-  'No deposits, withdrawals, or cash prizes',
-]
-
-const chartPoints = '0,82 52,78 104,70 156,75 208,62 260,66 312,55 364,58 416,48 468,52 520,37 572,42 624,29 676,34 728,23 780,31 832,18'
-
-function money(value: number) {
-  return value.toLocaleString(undefined, {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 2,
-  })
-}
-
-function priceLabel(value?: number) {
-  return ((value ?? 0) / 100).toFixed(2)
-}
-
-function statusClass(status: string) {
-  return status.toLowerCase().replace(/\s+/g, '-')
-}
-
-function memberDelta(index: number) {
-  const deltas = ['+9.31%', '+8.72%', '+6.21%', '+4.17%', '+3.02%', '-1.12%']
-  return deltas[index] ?? '+1.90%'
-}
-
-function splitMarketTitle(title?: string) {
-  const clean = title?.replace(/^Will\s+/i, '').replace(/\?$/, '') ?? 'Market'
-  const versus = clean.match(/(.+?)\s+(?:beat|vs|v\.|against)\s+(.+)/i)
-  if (!versus) return { home: 'YES', away: 'NO', question: title ?? 'Select a market' }
-  return {
-    home: versus[1].trim().slice(0, 16),
-    away: versus[2].trim().slice(0, 16),
-    question: title ?? clean,
-  }
-}
-
-function MiniChart() {
-  return (
-    <svg className="line-chart" viewBox="0 0 832 120" role="img" aria-label="Portfolio trend chart">
-      <defs>
-        <linearGradient id="portfolioFill" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="rgba(34, 197, 94, 0.42)" />
-          <stop offset="100%" stopColor="rgba(34, 197, 94, 0.02)" />
-        </linearGradient>
-      </defs>
-      <path d={`M ${chartPoints} L 832 120 L 0 120 Z`} fill="url(#portfolioFill)" />
-      <polyline points={chartPoints} fill="none" stroke="#2ef27c" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-      <g className="chart-grid">
-        <line x1="0" x2="832" y1="28" y2="28" />
-        <line x1="0" x2="832" y1="64" y2="64" />
-        <line x1="0" x2="832" y1="100" y2="100" />
-      </g>
-    </svg>
-  )
-}
-
-function buildHistoryPath(points: MarketPricePoint[], width = 900, height = 260) {
-  if (points.length < 2) return null
-  const prices = points.map((point) => point.p)
-  const min = Math.max(0, Math.min(...prices) - 0.05)
-  const max = Math.min(1, Math.max(...prices) + 0.05)
-  const spread = max - min || 1
-  const line = points.map((point, index) => {
-    const x = (index / (points.length - 1)) * width
-    const y = height - ((point.p - min) / spread) * (height - 34) - 18
-    return `${x.toFixed(1)},${y.toFixed(1)}`
-  })
-  return {
-    line: line.join(' '),
-    area: `M ${line.join(' ')} L ${width} ${height} L 0 ${height} Z`,
-    latest: points[points.length - 1]?.p,
-  }
-}
-
-function MarketPriceChart({ market, history }: { market?: Market; history: MarketPricePoint[] }) {
-  const realPath = buildHistoryPath(history)
-
-  return (
-    <svg className="market-chart" viewBox="0 0 900 260" role="img" aria-label="YES and NO market price chart">
-      <defs>
-        <linearGradient id="yesFill" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="rgba(34, 197, 94, 0.34)" />
-          <stop offset="100%" stopColor="rgba(34, 197, 94, 0.02)" />
-        </linearGradient>
-        <linearGradient id="noFill" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="rgba(248, 113, 113, 0.2)" />
-          <stop offset="100%" stopColor="rgba(248, 113, 113, 0.02)" />
-        </linearGradient>
-      </defs>
-      <g className="chart-grid">
-        <line x1="0" x2="900" y1="50" y2="50" />
-        <line x1="0" x2="900" y1="120" y2="120" />
-        <line x1="0" x2="900" y1="190" y2="190" />
-      </g>
-      {realPath ? (
-        <>
-          <path d={realPath.area} fill="url(#yesFill)" />
-          <polyline points={realPath.line} fill="none" stroke="#22c55e" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-          <text x="814" y="64" className="chart-badge yes">{realPath.latest?.toFixed(2)}</text>
-        </>
-      ) : (
-        <>
-          <path d="M0 160 C90 142 120 108 210 126 C320 150 360 88 465 106 C560 124 600 74 710 62 C800 50 830 88 900 72 L900 260 L0 260 Z" fill="url(#yesFill)" />
-          <path d="M0 172 C80 192 140 154 240 166 C330 178 390 134 500 144 C590 154 650 190 760 172 C825 160 860 156 900 146 L900 260 L0 260 Z" fill="url(#noFill)" />
-          <path d="M0 160 C90 142 120 108 210 126 C320 150 360 88 465 106 C560 124 600 74 710 62 C800 50 830 88 900 72" fill="none" stroke="#22c55e" strokeWidth="4" />
-          <path d="M0 172 C80 192 140 154 240 166 C330 178 390 134 500 144 C590 154 650 190 760 172 C825 160 860 156 900 146" fill="none" stroke="#ef4444" strokeWidth="4" />
-          <text x="844" y="64" className="chart-badge yes">{priceLabel(market?.yesPrice)}</text>
-          <text x="844" y="138" className="chart-badge no">{priceLabel(market?.noPrice)}</text>
-        </>
-      )}
-    </svg>
-  )
-}
-
-function App() {
-  const [view, setView] = useState<AppView>('dashboard')
-  const [walletAddress, setWalletAddress] = useState('')
-  const [accountPositions, setAccountPositions] = useState<PolymarketAccountPosition[]>([])
-  const [accountStatus, setAccountStatus] = useState('Paste a public wallet or Polymarket proxy-wallet address to compare real account PnL.')
-  const [accountLoading, setAccountLoading] = useState(false)
-  const [authMode, setAuthMode] = useState<'sign-in' | 'sign-up'>('sign-in')
-  const [authEmail, setAuthEmail] = useState('')
-  const [authPassword, setAuthPassword] = useState('')
-  const [authStatus, setAuthStatus] = useState('Email/password only. No Google or social login.')
-  const [authLoading, setAuthLoading] = useState(false)
-  const [session, setSession] = useState<Session | null>(null)
-  const [marketSearch, setMarketSearch] = useState('')
-  const [historyInterval, setHistoryInterval] = useState<'1h' | '6h' | '1d' | '1w' | '1m' | 'all'>('6h')
-  const [priceHistory, setPriceHistory] = useState<MarketPricePoint[]>([])
-  const [historyStatus, setHistoryStatus] = useState('Select a market to load CLOB history.')
-  const [marketDisplayLimit, setMarketDisplayLimit] = useState(40)
-
-  const {
-    context,
-    runtimePersistenceMode,
-    liveStatus,
-    selectedSetSlugs,
-    approvals,
-    resolutionQueue,
-    tradeIntents,
-    selectedMarket,
-    discoveryMarkets,
-    leagueVisibleMarkets,
-    members,
-    marketSets,
-    positions,
-    activity,
-    syncState,
-    toggleMarketSet,
-    toggleMarketApproval,
-    updateResolution,
-    queueTrade,
-    setSelectedMarketId,
-  } = useLeagueRuntime()
-
-  const approvedSets = marketSets.filter((set) => selectedSetSlugs.includes(set.slug))
-  const currentMember = members.find((member) => member.name === context.viewerName) ?? members[0]
-  const portfolioValue = currentMember?.portfolioValue ?? 0
-  const buyingPower = currentMember?.cashBalance ?? 0
-  const todayPnl = currentMember ? (currentMember.realizedPnl ?? 0) + (currentMember.unrealizedPnl ?? 0) : 0
-  const leagueRank = currentMember?.rank ?? 0
-  const selectedMatchup = splitMarketTitle(selectedMarket?.title)
-  const activityRows = activity.map((item, index) => ({
-    user: item.user,
-    action: item.text,
-    amount: '',
-    time: item.time,
-    side: item.text.toLowerCase().includes('sold') ? 'down' : 'up',
-    key: `${item.user}-${item.time}-${index}`,
-  }))
-  const visibleMarkets = leagueVisibleMarkets.filter((market) => {
-    const query = marketSearch.trim().toLowerCase()
-    if (!query) return true
-    return `${market.title} ${market.stage} ${market.category ?? ''}`.toLowerCase().includes(query)
-  })
-  const displayedMarkets = visibleMarkets.slice(0, marketDisplayLimit)
-  const totalLiveVolume = leagueVisibleMarkets.reduce((sum, market) => {
-    const match = market.volume.match(/\$([0-9.]+)([BMk]?)/i)
-    if (!match) return sum
-    const value = Number(match[1])
-    const suffix = match[2]?.toLowerCase()
-    const multiplier = suffix === 'b' ? 1_000_000_000 : suffix === 'm' ? 1_000_000 : suffix === 'k' ? 1_000 : 1
-    return sum + (Number.isFinite(value) ? value * multiplier : 0)
-  }, 0)
-
-  useEffect(() => {
-    if (!selectedMarket) return
-
-    let active = true
-
-    fetchPolymarketPriceHistory(selectedMarket, historyInterval)
-      .then((history) => {
-        if (!active) return
-        setPriceHistory(history)
-        setHistoryStatus(history.length ? `Loaded ${history.length} real Polymarket price points.` : 'Polymarket returned no history for this interval.')
-      })
-      .catch((error) => {
-        if (!active) return
-        setHistoryStatus(error instanceof Error ? error.message : 'Could not load Polymarket price history.')
-      })
-
-    return () => {
-      active = false
-    }
-  }, [historyInterval, selectedMarket])
-
-  function handleMarketListScroll(event: UIEvent<HTMLDivElement>) {
-    const element = event.currentTarget
-    const remaining = element.scrollHeight - element.scrollTop - element.clientHeight
-    if (remaining < 260) {
-      setMarketDisplayLimit((current) => Math.min(current + 40, visibleMarkets.length))
-    }
-  }
-  const accountSummary = useMemo(
-    () =>
-      accountPositions.reduce(
-        (summary, position) => ({
-          value: summary.value + position.currentValue,
-          pnl: summary.pnl + position.cashPnl,
-        }),
-        { value: 0, pnl: 0 },
-      ),
-    [accountPositions],
-  )
-
-  useEffect(() => {
-    if (!supabase) return
-
-    let active = true
-    supabase.auth.getSession().then(({ data }) => {
-      if (active) setSession(data.session)
-    })
-
-    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession)
-    })
-
-    return () => {
-      active = false
-      data.subscription.unsubscribe()
-    }
-  }, [])
-
-  async function submitAuth() {
-    if (!supabase) {
-      setAuthStatus('Supabase config is missing, so auth is disabled in local fallback mode.')
-      return
-    }
-
-    setAuthLoading(true)
-    setAuthStatus(authMode === 'sign-in' ? 'Signing in...' : 'Creating account...')
+function AuthModal() {
+  const { authModal, openAuth, login } = useApp()
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [displayName, setDisplayName] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  if (!authModal) return null
+  const signup = authModal === 'signup'
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setBusy(true)
+    setError(null)
     try {
-      const result =
-        authMode === 'sign-in'
-          ? await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword })
-          : await supabase.auth.signUp({ email: authEmail, password: authPassword })
-
-      if (result.error) throw result.error
-      setAuthStatus(authMode === 'sign-in' ? 'Signed in.' : 'Account created. Check email confirmation settings if sign-in is pending.')
-      setAuthPassword('')
-    } catch (error) {
-      setAuthStatus(error instanceof Error ? error.message : 'Authentication failed.')
+      const res = await api<{ token: string; user: User }>(`/api/auth/${signup ? 'signup' : 'login'}`, {
+        method: 'POST', body: { username, password, displayName: displayName || undefined },
+      })
+      await login(res.token, res.user)
+      setPassword('')
+    } catch (err) {
+      setError((err as Error).message)
     } finally {
-      setAuthLoading(false)
+      setBusy(false)
     }
   }
-
-  async function signOut() {
-    if (!supabase) return
-    await supabase.auth.signOut()
-    setAuthStatus('Signed out.')
-  }
-
-  async function loadAccountPositions() {
-    setAccountLoading(true)
-    setAccountStatus('Loading public Polymarket account positions...')
-    try {
-      const fetched = await fetchPolymarketAccountPositions(walletAddress)
-      setAccountPositions(fetched)
-      setAccountStatus(fetched.length ? `Loaded ${fetched.length} open positions.` : 'No open positions found for that address.')
-    } catch (error) {
-      setAccountPositions([])
-      setAccountStatus(error instanceof Error ? error.message : 'Could not load Polymarket account positions.')
-    } finally {
-      setAccountLoading(false)
-    }
-  }
-
-  function openMarket(market: Market) {
-    setSelectedMarketId(market.id)
-    setView('markets')
-    window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }))
-  }
-
-  function resolve(item: ResolutionItem, result: 'YES' | 'NO') {
-    return updateResolution(item.id, {
-      status: 'Resolved',
-      result,
-      note: `Resolved ${result} and queued league payout snapshot.`,
-    })
-  }
-
   return (
-    <div className="match-app">
-      <aside className="side-nav">
-        <div className="brand">
-          <img src={logoMark} alt="Polymates logo" />
-          <strong>Poly<span>mates</span></strong>
-        </div>
-        <nav aria-label="Primary app navigation">
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className={view === item.id ? 'active' : ''}
-              onClick={() => setView(item.id)}
-            >
-              <span>{item.icon}</span>
-              {item.label}
-            </button>
-          ))}
-        </nav>
-        <div className="sync-card">
-          <span className="sync-dot"></span>
-          <strong>Live market sync</strong>
-          <span>{leagueVisibleMarkets.length} approved Polymarket markets</span>
-          <span>{leagueVisibleMarkets.filter((market) => market.clobTokenIds?.[0]).length} with price history</span>
-        </div>
-      </aside>
+    <Modal onClose={() => openAuth(null)} className="auth">
+      <div className="auth-logo"><Logo /></div>
+      <h2>{signup ? 'Create your account' : 'Welcome back'}</h2>
+      <p className="muted small">Fantasy dollars only. No deposits, no withdrawals, no real money.</p>
+      <form onSubmit={submit} className="auth-form">
+        <input autoFocus value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Username" autoComplete="username" autoCapitalize="none" />
+        {signup && <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Display name (optional)" />}
+        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" autoComplete={signup ? 'new-password' : 'current-password'} />
+        {error && <p className="error-text">{error}</p>}
+        <button className="ledge-btn" disabled={busy || !username || !password}>{busy ? '…' : signup ? 'Sign Up' : 'Log In'}</button>
+      </form>
+      <p className="small center">
+        {signup ? 'Already have an account? ' : 'New here? '}
+        <button className="link-btn" onClick={() => { setError(null); openAuth(signup ? 'login' : 'signup') }}>{signup ? 'Log in' : 'Sign up'}</button>
+      </p>
+    </Modal>
+  )
+}
 
-      <main className="match-main">
-        <header className="app-topbar">
-          <div>
-            <span className="app-kicker">Goal mode active</span>
-            <h1>{view === 'markets' ? selectedMarket?.title : 'Dorm World Cup League'}</h1>
-          </div>
-          <div className="profile-cluster">
-            <span className={`feed-status ${liveStatus}`}>{liveStatus === 'live' ? 'Live Polymarket feed' : 'Fallback feed'}</span>
-            <button type="button" className="icon-button" aria-label="Notifications">N</button>
-            <div className="avatar">AD</div>
-          </div>
-        </header>
-
-        {view !== 'markets' ? (
-          <div className="dashboard-layout">
-            <section className="dashboard-main">
-              <div className="metric-strip">
-                <article>
-                  <span>Portfolio value</span>
-                  <strong>{money(portfolioValue)}</strong>
-                  <small>{currentMember?.pnl ?? '$0'} all-time</small>
-                </article>
-                <article>
-                  <span>Buying power</span>
-                  <strong>{money(buyingPower)}</strong>
-                  <small>Available to trade</small>
-                </article>
-                <article>
-                  <span>Today</span>
-                  <strong>{todayPnl >= 0 ? '+' : '-'}{money(Math.abs(todayPnl))}</strong>
-                  <small>From latest league snapshot</small>
-                </article>
-                <article>
-                  <span>League rank</span>
-                  <strong>#{leagueRank || '-'}</strong>
-                  <small>{members.length} league members</small>
-                </article>
-              </div>
-
-              {view === 'dashboard' && (
-                <>
-                  <section className="league-hero">
-                    <div className="cup-badge">Live</div>
-                    <div>
-                      <span className="privacy-pill">Private league</span>
-                      <h2>Dorm World Cup League</h2>
-                      <p>Trade prediction markets. Compete with friends. Climb the leaderboard. Win bragging rights.</p>
-                      <div className="league-meta">
-                        <span>{members.length} members</span>
-                        <span>{money(context.weeklyBonus ?? 0)} weekly bonus</span>
-                        <span>{approvedSets.length} active packs</span>
-                      </div>
-                    </div>
-                    <button type="button" className="primary-action">Invite friends</button>
-                  </section>
-
-                  <section className="panel-block">
-                    <div className="section-head">
-                      <h3>Upcoming markets</h3>
-                      <button type="button" onClick={() => setView('markets')}>View all markets</button>
-                    </div>
-                    <div className="match-card-row">
-                      {leagueVisibleMarkets.slice(0, 3).map((market, index) => {
-                        const matchup = splitMarketTitle(market.title)
-                        return (
-                          <button key={market.id} type="button" className="match-card" onClick={() => openMarket(market)}>
-                            <span>{market.closes}</span>
-                            <div className="teams">
-                              <strong>{matchup.home}</strong>
-                              <small>vs</small>
-                              <strong>{matchup.away}</strong>
-                            </div>
-                            <p>{market.title}</p>
-                            <div className="odds-row">
-                              <span>YES {priceLabel(market.yesPrice)}</span>
-                              <span className="no">NO {priceLabel(market.noPrice)}</span>
-                            </div>
-                            <footer>
-                              <span>{market.volume}</span>
-                              <span>{tradeIntents.filter((intent) => intent.marketId === market.id).length + index} trades</span>
-                            </footer>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </section>
-
-                  <section className="portfolio-chart panel-block">
-                    <div className="section-head">
-                      <h3>Portfolio trend</h3>
-                      <div className="segmented">
-                        <span>1D</span>
-                        <span className="active">1W</span>
-                        <span>1M</span>
-                        <span>ALL</span>
-                      </div>
-                    </div>
-                    <MiniChart />
-                    <div className="chart-summary">
-                      <span>Current value</span>
-                      <strong>{money(portfolioValue)}</strong>
-                      <small>+8.72%</small>
-                    </div>
-                  </section>
-                </>
-              )}
-
-              {view === 'portfolio' && (
-                <section className="panel-block">
-                  <div className="section-head">
-                    <h3>Fantasy portfolio</h3>
-                  <span>{productSpec.coreEntities.length} schema entities ready</span>
-                  </div>
-                  <div className="table-stack">
-                    {positions.map((position) => (
-                      <article key={`${position.market}-${position.side}`} className="table-row">
-                        <div>
-                          <strong>{position.market}</strong>
-                          <span>{position.side} · {position.shares} shares @ {money(position.avgPrice)}</span>
-                        </div>
-                        <div>
-                          <strong>{position.currentValue}</strong>
-                          <span>{position.pnl}</span>
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {view === 'league' && (
-                <section className="panel-block">
-                  <div className="section-head">
-                    <h3>League setup</h3>
-                    <span>Invite code {context.inviteCode}</span>
-                  </div>
-                  <div className="league-settings-grid">
-                    {marketSets.map((set) => {
-                      const active = selectedSetSlugs.includes(set.slug)
-                      return (
-                        <article key={set.slug} className={active ? 'setting-card active' : 'setting-card'}>
-                          <div>
-                            <strong>{set.title}</strong>
-                            <p>{set.description}</p>
-                          </div>
-                          <button type="button" onClick={() => toggleMarketSet(set.slug)}>{active ? 'Allowed' : 'Allow'}</button>
-                        </article>
-                      )
-                    })}
-                  </div>
-                  <div className="section-head secondary-head">
-                    <h3>Live market whitelist</h3>
-                    <span>{approvals.filter((item) => item.approved).length} approved markets</span>
-                  </div>
-                  <div className="table-stack">
-                    {discoveryMarkets.slice(0, 6).map((market) => {
-                      const approval = approvals.find((item) => item.marketId === market.id)
-                      const approved = approval?.approved ?? false
-                      return (
-                        <article key={market.id} className="table-row">
-                          <div>
-                            <strong>{market.title}</strong>
-                            <span>{market.stage} · {market.volume}</span>
-                          </div>
-                          <button type="button" className={approved ? 'approval-button active' : 'approval-button'} onClick={() => void toggleMarketApproval(market)}>
-                            {approved ? 'Approved' : 'Approve'}
-                          </button>
-                        </article>
-                      )
-                    })}
-                  </div>
-                  <div className="rules-grid">
-                    {leagueRules.map((rule) => <span key={rule}>{rule}</span>)}
-                  </div>
-                </section>
-              )}
-
-              {view === 'connected' && (
-                <section className="panel-block">
-                  <div className="section-head">
-                    <h3>Connected Polymarket accounts</h3>
-                    <span>Read-only public Data API</span>
-                  </div>
-                  <div className="wallet-form">
-                    <input
-                      value={walletAddress}
-                      onChange={(event) => setWalletAddress(event.target.value)}
-                      placeholder="0x wallet or proxy-wallet address"
-                      aria-label="Polymarket wallet address"
-                    />
-                    <button type="button" className="primary-action" onClick={() => void loadAccountPositions()} disabled={accountLoading}>
-                      {accountLoading ? 'Loading' : 'Load account'}
-                    </button>
-                  </div>
-                  <p className="status-note">{accountStatus}</p>
-                  <div className="metric-strip compact">
-                    <article>
-                      <span>Open position value</span>
-                      <strong>{money(accountSummary.value)}</strong>
-                      <small>Public positions</small>
-                    </article>
-                    <article>
-                      <span>Open cash PnL</span>
-                      <strong>{money(accountSummary.pnl)}</strong>
-                      <small>Unverified account view</small>
-                    </article>
-                  </div>
-                  <div className="table-stack">
-                    {accountPositions.slice(0, 8).map((position) => (
-                      <article key={`${position.conditionId}-${position.outcome}`} className="table-row">
-                        <div>
-                          <strong>{position.title}</strong>
-                          <span>{position.outcome} · {position.size.toFixed(2)} shares @ {(position.avgPrice * 100).toFixed(1)}c</span>
-                        </div>
-                        <div>
-                          <strong>{money(position.currentValue)}</strong>
-                          <span>{money(position.cashPnl)} · {position.percentPnl.toFixed(1)}%</span>
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {view === 'admin' && (
-                <section className="panel-block">
-                  <div className="section-head">
-                    <h3>Admin and settlement</h3>
-                    <span>{runtimePersistenceMode} runtime · {syncState.message}</span>
-                  </div>
-                  <div className="table-stack">
-                    {resolutionQueue.map((item) => (
-                      <article key={item.id} className="settlement-row">
-                        <div>
-                          <strong>{item.marketTitle}</strong>
-                          <span>{item.league} · {item.note}</span>
-                        </div>
-                        <div className="settlement-actions">
-                          <span className={`status ${statusClass(item.status)}`}>{item.status}</span>
-                          <button type="button" onClick={() => void resolve(item, 'YES')}>YES</button>
-                          <button type="button" onClick={() => void resolve(item, 'NO')}>NO</button>
-                          <button type="button" onClick={() => void updateResolution(item.id, { status: 'Paused', note: 'Paused for admin review.' })}>Pause</button>
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                </section>
-              )}
-            </section>
-
-            <aside className="right-rail">
-              <section className="rail-card">
-                <div className="section-head">
-                  <h3>League leaderboard</h3>
-                  <button type="button" onClick={() => setView('league')}>Full board</button>
-                </div>
-                <div className="leaderboard-list">
-                  {members.map((member, index) => (
-                    <article key={member.name} className={member.name === 'Akash' ? 'you' : ''}>
-                      <span>{index + 1}</span>
-                      <div>
-                        <strong>{member.name}{member.name === 'Akash' ? ' (You)' : ''}</strong>
-                        <small>{member.note}</small>
-                      </div>
-                      <div>
-                        <strong>{member.portfolio}</strong>
-                        <small className={memberDelta(index).startsWith('-') ? 'negative' : 'positive'}>{memberDelta(index)}</small>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </section>
-
-              <section className="rail-card">
-                <div className="section-head">
-                  <h3>Recent activity</h3>
-                  <button type="button">View all</button>
-                </div>
-                <div className="activity-list">
-                  {activityRows.map((item) => (
-                    <article key={item.key}>
-                      <span className={item.side}>{item.side === 'up' ? 'UP' : 'DN'}</span>
-                      <div>
-                        <strong>{item.user}</strong>
-                        <p>{item.action}</p>
-                      <small>{item.amount}</small>
-                      </div>
-                      <time>{item.time}</time>
-                    </article>
-                  ))}
-                </div>
-              </section>
-
-              <section className="rail-card runtime-card">
-                <h3>Runtime</h3>
-                <p>{hasSupabaseEnv ? 'Supabase credentials detected.' : 'Supabase credentials are not set locally.'}</p>
-                <p>{describeRuntimeMode()}</p>
-                <p>{syncState.message}</p>
-              </section>
-
-              <section className="rail-card auth-card">
-                <div className="section-head">
-                  <h3>Account</h3>
-                  <span>{session ? 'Signed in' : 'Email auth'}</span>
-                </div>
-                {session ? (
-                  <div className="auth-session">
-                    <strong>{session.user.email}</strong>
-                    <button type="button" onClick={() => void signOut()}>Sign out</button>
-                  </div>
-                ) : (
-                  <div className="auth-form">
-                    <div className="trade-tabs">
-                      <button type="button" className={authMode === 'sign-in' ? 'active' : ''} onClick={() => setAuthMode('sign-in')}>Sign in</button>
-                      <button type="button" className={authMode === 'sign-up' ? 'active' : ''} onClick={() => setAuthMode('sign-up')}>Sign up</button>
-                    </div>
-                    <input value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} placeholder="Email" type="email" />
-                    <input value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} placeholder="Password" type="password" />
-                    <button type="button" className="primary-action full" onClick={() => void submitAuth()} disabled={authLoading}>
-                      {authLoading ? 'Working...' : authMode === 'sign-in' ? 'Sign in' : 'Create account'}
-                    </button>
-                    <p>{authStatus}</p>
-                  </div>
-                )}
-              </section>
-            </aside>
-          </div>
-        ) : (
-          <div className="market-layout">
-            <section className="market-workspace">
-              <button type="button" className="back-link" onClick={() => setView('dashboard')}>Back to dashboard</button>
-              <section className="panel-block market-browser">
-                <div className="section-head">
-                  <div>
-                    <h3>Live Polymarket markets</h3>
-                    <p>Approved league markets synced from Gamma, with CLOB token history for charts.</p>
-                  </div>
-                  <input
-                    value={marketSearch}
-                    onChange={(event) => {
-                      setMarketSearch(event.target.value)
-                      setMarketDisplayLimit(40)
-                    }}
-                    placeholder="Search markets"
-                    aria-label="Search Polymarket markets"
-                  />
-                </div>
-                <div className="market-data-strip">
-                  <article>
-                    <span>Approved markets</span>
-                    <strong>{leagueVisibleMarkets.length}</strong>
-                  </article>
-                  <article>
-                    <span>Estimated live volume</span>
-                    <strong>
-                      {totalLiveVolume >= 1_000_000_000
-                        ? `$${(totalLiveVolume / 1_000_000_000).toFixed(1)}B`
-                        : totalLiveVolume >= 1_000_000
-                          ? `$${(totalLiveVolume / 1_000_000).toFixed(1)}M`
-                          : `$${(totalLiveVolume / 1_000).toFixed(1)}k`}
-                    </strong>
-                  </article>
-                  <article>
-                    <span>With CLOB history</span>
-                    <strong>{leagueVisibleMarkets.filter((market) => market.clobTokenIds?.[0]).length}</strong>
-                  </article>
-                  <article>
-                    <span>Showing</span>
-                    <strong>{Math.min(marketDisplayLimit, visibleMarkets.length)} / {visibleMarkets.length}</strong>
-                  </article>
-                </div>
-                <div className="market-explorer-list" onScroll={handleMarketListScroll}>
-                  {displayedMarkets.map((market) => {
-                    const active = market.id === selectedMarket?.id
-                    return (
-                      <button key={market.id} type="button" className={active ? 'market-explorer-row active' : 'market-explorer-row'} onClick={() => setSelectedMarketId(market.id)}>
-                        <div>
-                          <strong>{market.title}</strong>
-                          <span>{market.stage} · {market.volume}</span>
-                        </div>
-                        <div className="market-row-prices">
-                          <span>YES {priceLabel(market.yesPrice)}</span>
-                          <span>NO {priceLabel(market.noPrice)}</span>
-                        </div>
-                      </button>
-                    )
-                  })}
-                  <div className="market-scroll-sentinel">
-                    {marketDisplayLimit < visibleMarkets.length ? (
-                      <button type="button" onClick={() => setMarketDisplayLimit((current) => Math.min(current + 80, visibleMarkets.length))}>
-                        Load more markets
-                      </button>
-                    ) : (
-                      <span>{visibleMarkets.length ? 'All matching markets loaded' : 'No markets match this search'}</span>
-                    )}
-                  </div>
-                </div>
-              </section>
-              <section className="market-title-card">
-                <div className="matchup-badges">
-                  <span>{selectedMatchup.home}</span>
-                  <small>vs</small>
-                  <span>{selectedMatchup.away}</span>
-                </div>
-                <div>
-                  <span className="privacy-pill">{selectedMarket?.stage ?? 'Market'}</span>
-                  <h2>{selectedMarket?.title}</h2>
-                  <p>{selectedMarket?.closes} · {selectedMarket?.status}</p>
-                </div>
-                <button type="button" className="icon-button" aria-label="Watch market">W</button>
-              </section>
-
-              <section className="panel-block chart-panel">
-                <div className="section-head">
-                  <div className="price-legend">
-                    <span className="yes-dot">YES {priceLabel(selectedMarket?.yesPrice)}</span>
-                    <span className="no-dot">NO {priceLabel(selectedMarket?.noPrice)}</span>
-                  </div>
-                  <div className="segmented">
-                    {(['1h', '6h', '1d', '1w', '1m', 'all'] as const).map((interval) => (
-                      <button
-                        key={interval}
-                        type="button"
-                        className={historyInterval === interval ? 'active' : ''}
-                        onClick={() => setHistoryInterval(interval)}
-                      >
-                        {interval.toUpperCase()}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <MarketPriceChart market={selectedMarket} history={priceHistory} />
-                <p className="history-status">{historyStatus}</p>
-              </section>
-
-              <div className="detail-subgrid">
-                <section className="panel-block">
-                  <h3>Resolution rules</h3>
-                  <p>{selectedMarket?.rules}</p>
-                  <p>Fantasy dollars have no cash value. No deposits, withdrawals, or redeemable prizes.</p>
-                </section>
-                <section className="panel-block">
-                  <div className="section-head">
-                    <h3>Your position</h3>
-                    <button type="button" onClick={() => setView('portfolio')}>Full portfolio</button>
-                  </div>
-                  <div className="position-grid">
-                    <span>120 YES</span>
-                    <span>Avg {priceLabel((selectedMarket?.yesPrice ?? 58) - 4)}</span>
-                    <span>{money(69.6)} value</span>
-                    <span>{money(120)} payout</span>
-                  </div>
-                </section>
-              </div>
-
-              <div className="detail-subgrid three">
-                <section className="panel-block">
-                  <div className="section-head">
-                    <h3>Recent trades</h3>
-                    <button type="button">All trades</button>
-                  </div>
-                  <div className="mini-table">
-                  {tradeIntents.map((intent) => (
-                      <article key={intent.id}>
-                        <span>{intent.side}</span>
-                        <span>{priceLabel(intent.estimatedPrice)}</span>
-                        <span>{intent.shares}</span>
-                      </article>
-                    ))}
-                  </div>
-                </section>
-                <section className="panel-block sentiment-card">
-                  <h3>Friends sentiment</h3>
-                  <strong>62% YES</strong>
-                  <p>7 of 11 friends are leaning YES.</p>
-                </section>
-                <section className="panel-block">
-                  <h3>Comments</h3>
-                  {activity.slice(0, 3).map((item, index) => <p key={`${item.user}-${item.time}-${index}`}><strong>{item.user}</strong> {item.text}</p>)}
-                </section>
-              </div>
-            </section>
-
-            <aside className="trade-rail">
-              <section className="trade-ticket">
-                <div className="trade-tabs">
-                  <span className="active">Buy</span>
-                  <span>Sell</span>
-                </div>
-                <div className="odds-row">
-                  <button type="button" className="yes">YES {priceLabel(selectedMarket?.yesPrice)}</button>
-                  <button type="button" className="no">NO {priceLabel(selectedMarket?.noPrice)}</button>
-                </div>
-                <label>
-                  Order type
-                  <select defaultValue="limit">
-                    <option value="limit">Limit order</option>
-                    <option value="market">Market-style fantasy fill</option>
-                  </select>
-                </label>
-                <label>
-                  Quantity
-                  <input value="100" readOnly />
-                </label>
-                <div className="ticket-summary">
-                  <span>Average price</span>
-                  <strong>{priceLabel(selectedMarket?.yesPrice)}c</strong>
-                  <span>Estimated cost</span>
-                  <strong>{money(selectedMarket?.yesPrice ?? 58)}</strong>
-                </div>
-                <button type="button" className="primary-action full" onClick={() => void queueTrade('YES', 100)}>Buy YES</button>
-                <p>By placing this fantasy order you agree that no real-money trade is executed.</p>
-              </section>
-
-              <section className="rail-card">
-                <div className="section-head">
-                  <h3>Friend activity</h3>
-                  <button type="button">All</button>
-                </div>
-                <div className="activity-list">
-                  {activityRows.map((item) => (
-                    <article key={`market-${item.key}`}>
-                      <span className={item.side}>{item.side === 'up' ? 'UP' : 'DN'}</span>
-                      <div>
-                        <strong>{item.user}</strong>
-                        <p>{item.action}</p>
-                      </div>
-                      <time>{item.time}</time>
-                    </article>
-                  ))}
-                </div>
-              </section>
-            </aside>
-          </div>
-        )}
-
-        <nav className="mobile-tabs" aria-label="Mobile navigation">
-          {navItems.slice(0, 5).map((item) => (
-            <button key={item.id} type="button" className={view === item.id ? 'active' : ''} onClick={() => setView(item.id)}>
-              <span>{item.icon}</span>
-              {item.label}
-            </button>
-          ))}
-        </nav>
-      </main>
+function Toasts() {
+  const { toasts } = useApp()
+  return (
+    <div className="toasts" aria-live="polite">
+      {toasts.map((t) => <div key={t.id} className={`toast ${t.kind}`}><Icon name={t.kind === 'ok' ? 'check' : 'info'} size={16} /> {t.text}</div>)}
     </div>
   )
 }
 
-export default App
+function MorePage() {
+  const { user, logout, openAuth, league } = useApp()
+  useTitle('More')
+  const items = [
+    { to: '/league', label: league ? `League: ${league.name}` : 'Leagues', icon: 'users' as const },
+    { to: '/activity', label: 'League activity', icon: 'activity' as const },
+    { to: '/developers', label: 'Agents & API', icon: 'bot' as const },
+    { to: '/?tag=league', label: 'League markets', icon: 'swap' as const },
+  ]
+  return (
+    <div className="wrap page narrow">
+      <ul className="more-list">
+        {items.map((i) => <li key={i.to}><Link to={i.to}><Icon name={i.icon} /> <span className="grow">{i.label}</span><Icon name="chevronRight" size={16} /></Link></li>)}
+        <li>{user
+          ? <button onClick={logout}><Icon name="logout" /> <span className="grow">Log out</span></button>
+          : <button onClick={() => openAuth('login')}><Icon name="logout" /> <span className="grow">Log in</span></button>}</li>
+      </ul>
+    </div>
+  )
+}
+
+function Footer() {
+  return (
+    <footer className="footer">
+      <div className="wrap footer-inner">
+        <div>
+          <Link to="/" className="brand"><Logo /><span>Polymates</span></Link>
+          <p className="muted small">Prediction markets with your friends. Markets and resolutions mirror Polymarket. Fantasy dollars only, with no cash value.</p>
+        </div>
+        <div className="footer-links">
+          <Link to="/leaderboard">Leaderboard</Link>
+          <Link to="/league">Leagues</Link>
+          <Link to="/developers">Agents & API</Link>
+          <a href="https://github.com/acashmoney-aura/polymates" target="_blank" rel="noreferrer">GitHub</a>
+        </div>
+      </div>
+      <div className="wrap footer-legal muted">Not affiliated with Polymarket. Market data © Polymarket, shown for entertainment.</div>
+    </footer>
+  )
+}
+
+function Routes() {
+  const { path } = useLocation()
+  if (path.startsWith('/event/')) return <EventPage key={path} slug={decodeURIComponent(path.slice(7))} />
+  if (path.startsWith('/join/')) return <JoinPage code={path.slice(6)} />
+  switch (path) {
+    case '/portfolio': return <Portfolio />
+    case '/leaderboard': return <Leaderboard />
+    case '/league': return <LeaguePage />
+    case '/developers': return <Developers />
+    case '/activity': return <ActivityPage />
+    case '/search': return <SearchPage />
+    case '/more': return <MorePage />
+    default: return <Home />
+  }
+}
+
+export default function App() {
+  return (
+    <AppProvider>
+      <Header />
+      <main><Routes /></main>
+      <Footer />
+      <MobileNav />
+      <AuthModal />
+      <SheetHost />
+      <Toasts />
+    </AppProvider>
+  )
+}
