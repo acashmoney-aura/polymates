@@ -3,6 +3,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import type { Request, Response } from 'express'
 import { z } from 'zod'
 import { agentApi } from './agent-api.ts'
+import { runBacktest, scanner, STRATEGY_TEMPLATES } from './backtest.ts'
 import { createScript, deleteScript, listScripts, scriptLogsFor, updateScript } from './script-api.ts'
 import { runScript } from './scripts.ts'
 import { db } from './state.ts'
@@ -83,6 +84,32 @@ function build(userId: string) {
     market_id: z.string().optional(), mine: z.boolean().optional(), limit: z.number().int().max(200).optional(), league_id: leagueId,
   }, (a) => api.listTrades(a.league_id, { marketId: a.market_id, mine: a.mine, limit: a.limit }))
   tool('get_leaderboard', 'League standings by P&L.', { league_id: leagueId }, (a) => api.getLeaderboard(a.league_id))
+
+  tool('get_price_history', 'Polymarket YES price history for a market: [{t (unix s), p (0..1)}].', {
+    market_id: z.string(), range: z.enum(['1h', '6h', '1d', '1w', '1m', 'all']).default('1w'), n: z.number().int().min(1).max(5000).default(200),
+  }, (a) => api.getHistory(a.market_id, a.n, a.range))
+  tool('scan_markets', 'Quant scanner: negRisk overround (sum of YES != 100%), biggest 24h movers, coin-flips ending this week, widest spreads, high-volume long shots.', {}, () => scanner())
+  tool('list_strategy_templates', 'Example strategies (momentum, mean reversion, market maker, longshot fade, buy & hold) you can backtest or upload.', {}, () => STRATEGY_TEMPLATES)
+  tool(
+    'run_backtest',
+    'Backtest a strategy over Polymarket price history. Same code as upload_script: define onTick(pm) (and optionally initialize(pm)); pm.history(id, n) gives the last n bars with no lookahead. ' +
+      'Returns stats (total return, Sharpe, Sortino, max drawdown, beta/alpha vs equal-weight buy-and-hold, win rate), the equity curve, fills and logs.',
+    {
+      code: z.string().min(1).max(100_000),
+      market_ids: z.array(z.string()).min(1).max(8),
+      range: z.enum(['1d', '1w', '1m', 'all']).default('1m'),
+      cash: z.number().positive().default(1000),
+      spread: z.number().min(0).max(0.2).default(0.02).describe('Simulated full bid/ask spread (0.02 = 2¢)'),
+      fee_bps: z.number().min(0).max(1000).default(0),
+      full: z.boolean().default(false).describe('Include the full equity curve and fill list'),
+    },
+    async (a) => {
+      const r = await runBacktest({ code: a.code, marketIds: a.market_ids, range: a.range, cash: a.cash, spread: a.spread, feeBps: a.fee_bps })
+      if (a.full) return r
+      const step = Math.max(1, Math.floor(r.equity.length / 60))
+      return { ...r, equity: r.equity.filter((_, i) => i % step === 0), fills: r.fills.slice(-50), logs: r.logs.slice(-50) }
+    },
+  )
 
   tool('list_scripts', 'Your hosted trading scripts.', { league_id: leagueId }, (a) => listScripts(userId, a.league_id ?? api.listLeagues()[0]?.id))
   tool(

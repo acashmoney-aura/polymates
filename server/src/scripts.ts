@@ -33,6 +33,7 @@ const pm = {
   event: (slug) => __call('event', slug),
   market: (marketId) => __call('market', marketId),
   book: (marketId) => __call('book', marketId),
+  history: (marketId, n) => __call('history', marketId, n ?? 50),
   portfolio: () => __call('portfolio'),
   orders: () => __call('orders'),
   leaderboard: () => __call('leaderboard'),
@@ -81,6 +82,7 @@ export async function runScript(script: Script) {
           case 'event': data = await api.getEvent(String(args[0]), L); break
           case 'market': data = await api.getMarket(String(args[0]), L); break
           case 'book': data = await api.getBook(String(args[0]), L); break
+          case 'history': data = await api.getHistory(String(args[0]), Number(args[1]) || 50); break
           case 'portfolio': data = api.getPortfolio(L); break
           case 'orders': data = api.listOrders(L, 'open'); break
           case 'leaderboard': data = api.getLeaderboard(L); break

@@ -1,6 +1,7 @@
 import cors from 'cors'
 import express, { type NextFunction, type Request, type Response } from 'express'
 import { agentApi } from './agent-api.ts'
+import { runBacktest, scanner, STRATEGY_TEMPLATES } from './backtest.ts'
 import { HOUSE_USER, logActivity, rebuildBooks, settleMarket, sweepMirrorOrders } from './engine.ts'
 import { startHouse } from './house.ts'
 import { handleMcp } from './mcp.ts'
@@ -291,6 +292,15 @@ app.post('/api/scripts/:sid/run', wrap(async (req) => {
   const result = await runScript(s!)
   return { result, script: { ...s, logs: undefined }, logs: scriptLogsFor(user.id, s!.id).slice(-50) }
 }))
+
+/* ---------------- quant ---------------- */
+
+app.get('/api/backtest/templates', wrap(() => STRATEGY_TEMPLATES))
+app.post('/api/backtest', wrap((req) => {
+  requireAuth(req)
+  return runBacktest(req.body ?? {})
+}))
+app.get('/api/quant/scanner', wrap(() => scanner()))
 
 /* ---------------- markets (public, optionally league-scoped) ---------------- */
 

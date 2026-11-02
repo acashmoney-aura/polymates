@@ -3,7 +3,7 @@ import {
   leagueYesPrice, marketEnabled, placeOrder, portfolio,
 } from './engine.ts'
 import { touchMarket } from './house.ts'
-import { catalog, CATEGORIES, displayPrice, eventBySlug, marketById, pmBook } from './polymarket.ts'
+import { catalog, CATEGORIES, displayPrice, eventBySlug, marketById, pmBook, pmHistory } from './polymarket.ts'
 import { db, settlementKey } from './state.ts'
 import type { League, OrderSource, Outcome, OrderType, PMEvent, PMMarket, Side } from './types.ts'
 import { fail, money, px } from './util.ts'
@@ -203,6 +203,13 @@ export function agentApi(userId: string, source: OrderSource) {
       }
       const b = await pmBook(m, 'yes')
       return { source: 'polymarket', quotedIn: 'yes', bids: b.bids.slice(0, 30), asks: b.asks.slice(0, 30), last: m.lastTrade, tick: m.tick }
+    },
+
+    /** Polymarket price history for the YES outcome, most recent `n` points of `range`. */
+    async getHistory(marketId: string, n = 50, range = '1w') {
+      const m = (await marketById(marketId)) ?? fail(404, `Market ${marketId} not found`)
+      const h = await pmHistory(m, range)
+      return h.slice(-Math.min(Math.max(Number(n) || 50, 1), 5000))
     },
 
     getPortfolio(leagueId?: string) {
