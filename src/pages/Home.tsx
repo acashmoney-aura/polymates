@@ -148,7 +148,7 @@ const FILTERS: { key: string; label: string; options: [string, string][] }[] = [
 /** What a sort is about, shown on each card so the ranking is legible. */
 function metricFor(sort: string, e: PMEvent): string | null {
   const open = e.markets.filter((m) => m.active)
-  const live = open.filter((m) => m.price > 0.02 && m.price < 0.98)
+  const live = open.filter((m) => m.price > 0.02 && m.price < 0.98 && m.volume24h > 25_000)
   const top = (f: (m: PMEvent['markets'][number]) => number, pool = live) => pool.reduce<{ m: (typeof pool)[number] | null; v: number }>((b, m) => (f(m) > b.v ? { m, v: f(m) } : b), { m: null, v: -1 })
   if (sort === 'movers') {
     const { m } = top((m) => Math.abs(m.change24h ?? 0))

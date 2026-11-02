@@ -90,9 +90,9 @@ function eventStats(e: PMEvent) {
     const p = displayPrice(m)
     // ignore decided long shots so a 0.1% -> 0.3% blip doesn't top "movers"
     const live = p > 0.02 && p < 0.98
-    if (live) move24h = Math.max(move24h, Math.abs(m.change24h ?? 0))
+    if (live && m.volume24h > 25_000) move24h = Math.max(move24h, Math.abs(m.change24h ?? 0))
     const s = liveStats(m.id)
-    if (live && m.volume24h > 5000) { move1h = Math.max(move1h, Math.abs(s.move1h)); range1h = Math.max(range1h, s.range1h) }
+    if (live && m.volume24h > 25_000) { move1h = Math.max(move1h, Math.abs(s.move1h)); range1h = Math.max(range1h, s.range1h) }
     if (m.bestBid !== null && m.bestAsk !== null && m.volume24h > 1000) spread = Math.min(spread, m.bestAsk - m.bestBid)
     if (m.volume24h > 1000) competitive = Math.min(competitive, Math.abs(p - 0.5))
   }
