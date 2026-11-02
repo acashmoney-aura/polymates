@@ -1,0 +1,525 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Polymates film</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Instrument+Serif:ital@0;1&family=Geist+Mono:wght@500;600;700&display=block" rel="stylesheet">
+<style>
+  :root{--bg:#0a0c11;--card:#1c1f27;--card2:#15181f;--line:#2d3037;--text:#f4f6f9;--muted:#9aa0aa;--dim:#62646a;
+    --brand:#3262ff;--brand2:#6f95ff;--yes:#53e67f;--yesd:#00ae4b;--no:#ff7767;--nod:#df0b10;--gold:#fdc503;--purple:#9b51e0}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:1920px;height:1080px;overflow:hidden;background:var(--bg)}
+  body{font-family:Inter,system-ui,sans-serif;color:var(--text);-webkit-font-smoothing:antialiased}
+  #stage{position:absolute;inset:0;overflow:hidden;background:var(--bg)}
+  #world{position:absolute;inset:0}
+  .layer{position:absolute;inset:0}
+  .abs{position:absolute;left:0;top:0}
+  .serif{font-family:"Instrument Serif",serif;font-style:italic;font-weight:400;letter-spacing:-.01em}
+  .mono{font-family:"Geist Mono",monospace}
+  .persp{position:absolute;inset:0;perspective:2200px;perspective-origin:960px 470px}
+  .p3{transform-style:preserve-3d}
+  .glow{position:absolute;width:1800px;height:1800px;border-radius:50%;left:0;top:0}
+  #vignette{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 50%,rgba(0,0,0,.62) 100%)}
+  #grain{position:absolute;left:-200px;top:-200px;width:2320px;height:1480px;opacity:.07;pointer-events:none;mix-blend-mode:overlay}
+  #flash,#fade,#flood{position:absolute;inset:0;pointer-events:none}
+  #fade{background:#000}
+  #flood{background:var(--brand)}
+  #flash{background:radial-gradient(circle at 50% 50%,rgba(150,180,255,.55),rgba(50,98,255,.15) 40%,transparent 70%)}
+
+  .k{font-weight:800;letter-spacing:-.045em;white-space:nowrap;line-height:1}
+  .cap{font-size:34px;color:var(--muted);font-weight:500;letter-spacing:-.01em;white-space:nowrap}
+  .title{font-size:104px;line-height:1;white-space:nowrap}
+  .card{background:var(--card);border:1px solid #ffffff14;border-radius:22px;box-shadow:0 30px 70px rgba(0,0,0,.45)}
+  .mc{width:400px;height:212px;padding:22px 24px;display:flex;flex-direction:column;gap:12px}
+  .mc .hd{display:flex;gap:14px;align-items:center}
+  .mc img{width:52px;height:52px;border-radius:10px;object-fit:cover;flex:none}
+  .mc .t{font-size:21px;font-weight:600;line-height:1.22;letter-spacing:-.01em}
+  .mc .row{display:flex;justify-content:space-between;align-items:center;margin-top:auto}
+  .mc .o{font-size:18px;color:var(--muted);max-width:230px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mc .p{font-family:"Geist Mono";font-size:34px;font-weight:700}
+  .mc .bt{display:flex;gap:10px}
+  .mc .bt span{flex:1;text-align:center;padding:9px 0;border-radius:10px;font-weight:700;font-size:17px}
+  .yesb{background:#00942f30;color:var(--yes)} .nob{background:#48000099;color:var(--no)}
+  .av{border-radius:50%;display:grid;place-items:center;font-weight:800;color:#fff}
+  .chip{display:inline-flex;align-items:center;gap:12px;padding:14px 22px;border-radius:999px;background:#ffffff10;border:1px solid #ffffff1f;font-weight:600;font-size:26px;white-space:nowrap}
+  .term{background:#0b0d12;border:1px solid #ffffff1a;border-radius:20px;overflow:hidden;box-shadow:0 40px 90px rgba(0,0,0,.55)}
+  .term .bar{height:52px;display:flex;align-items:center;gap:10px;padding:0 20px;background:#13161d;border-bottom:1px solid #ffffff12}
+  .term .bar i{width:14px;height:14px;border-radius:50%;display:block}
+  .term .body{padding:28px 32px;font-family:"Geist Mono";font-size:25px;line-height:1.6;white-space:pre}
+  .tile{width:205px;height:150px;padding:20px 22px;display:flex;flex-direction:column;justify-content:space-between}
+  .tile span{font-size:19px;color:var(--muted);font-weight:500}
+  .tile b{font-family:"Geist Mono";font-size:44px;font-weight:700}
+  .lvl{height:38px;border-radius:6px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font-family:"Geist Mono";font-size:20px;font-weight:600;position:relative;overflow:hidden}
+  .lvl i{position:absolute;top:0;bottom:0;right:0;opacity:.28}
+  .badge{display:inline-block;padding:6px 14px;border-radius:8px;font-family:"Geist Mono";font-weight:700;font-size:20px;letter-spacing:.06em}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="glow" id="glowA"></div>
+  <div class="glow" id="glowB"></div>
+  <div id="world">
+    <svg id="threadSvg" class="abs" width="1920" height="1080" style="z-index:50;overflow:visible;pointer-events:none">
+      <defs>
+        <filter id="tg" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="9"/></filter>
+        <linearGradient id="lg" x1="0" x2="1"><stop offset="0" stop-color="#3262ff"/><stop offset="1" stop-color="#53e67f"/></linearGradient>
+      </defs>
+      <path id="thG" fill="none" stroke="#3262ff" stroke-width="18" stroke-linecap="round" stroke-linejoin="round" filter="url(#tg)" opacity=".9"/>
+      <path id="th" fill="none" stroke="#cfdcff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+      <g id="head"><circle r="30" fill="#3262ff" filter="url(#tg)"/><circle r="8" fill="#fff"/></g>
+    </svg>
+  </div>
+  <div id="flood"></div>
+  <div id="vignette"></div>
+  <svg id="grain" viewBox="0 0 2320 1480"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 1.4 -0.2"/></filter><rect width="100%" height="100%" filter="url(#n)"/></svg>
+  <div id="flash"></div>
+  <div id="fade"></div>
+</div>
+<script src="kit.js"></script>
+<script src="data.js"></script>
+<script>
+const world=document.getElementById('world');
+const layer=(z)=>{const l=el('div','layer',world);l.style.zIndex=z||1;return l};
+const DUR=63;
+const HITS=[6.0,10.0,58.8];
+const SOFT=[29.75,25.6];
+const fmt=(n,d=0)=>n.toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
+const css=(e,s)=>{e.style.cssText+=s;return e};
+const at=(e,x,y)=>css(e,`left:${x}px;top:${y}px`);
+function avatar(parent,name,hue,size){const a=el('div','av abs',parent,name[0].toUpperCase());
+  css(a,`width:${size}px;height:${size}px;font-size:${size*.42}px;background:linear-gradient(135deg,hsl(${hue} 85% 62%),hsl(${(hue+60)%360} 80% 45%))`);return a}
+/* slam: kinetic entrance (scale 1.7 -> 1, blur 14 -> 0) */
+const slam=(t,t0,d=.22)=>{const p=tw(t,t0,t0+d);return{s:1.7-.7*p,blur:(1-p)*14,o:P(t,t0,t0+.06)}};
+const FRIENDS=[['maya',330],['dev',200],['jordan',40],['priya',280],['sam',150],['alex',10],['nina',100],['theo',250]];
+
+/* ================= HOOK 0 – 4.8 ================= */
+const L1=layer(5);
+const QS=[['Who wins the Senate?',72],['Will the Fed hike in December?',70],['Bitcoin under $55K this year?',12],['Best Picture: The Odyssey?',56]];
+const QT=[0.30,1.10,1.90,2.70];
+const qEls=QS.map(([q,p])=>{const w=el('div','abs',L1);css(w,'width:1920px;height:120px;display:flex;justify-content:center;align-items:center;gap:36px');
+  const a=el('div','k',w,q);css(a,'font-size:88px');const b=el('div','k mono',w,'0%');css(b,`font-size:84px;color:${p>=50?'var(--yes)':'var(--no)'};min-width:200px;letter-spacing:-.03em`);return{w,b,p}});
+const take=el('div','abs serif',L1,'Everyone has a take.');css(take,'width:1920px;text-align:center;font-size:150px;top:450px');
+function hook(t){
+  if(!show(L1,t<5.0))return;
+  const out=tw(t,4.55,4.95,'inExpo');
+  let s=0;QT.forEach((q,j)=>{if(j>0)s+=tw(t,q,q+.32,'outExpo')});
+  const center=tw(t,3.25,3.75,'inOutQuint')*195;
+  const dim=tw(t,3.45,3.9,'outCubic');
+  qEls.forEach((q,k)=>{const sl=slam(t,QT[k]);const y=540+130*(k-s)+center-60;
+    put(q.w,{y,s:sl.s*(1+out*.3),o:sl.o*(1-dim*.78)*(1-out),blur:sl.blur+dim*7+out*20});
+    q.b.textContent=Math.round(q.p*tw(t,QT[k]+.05,QT[k]+.55,'outCubic'))+'%'});
+  const ts=slam(t,3.85,.3);put(take,{s:ts.s*(1+out*.2),o:ts.o*(1-out),blur:ts.blur+out*18});
+}
+
+/* ================= TURN 4.8 – 8.6 ================= */
+const L2=layer(6);
+const t1=el('div','abs k',L2,'Talk is cheap.');css(t1,'width:1920px;text-align:center;font-size:150px;top:330px;color:#cfd3da');
+const t2=el('div','abs k',L2,'Put money on it.');css(t2,'width:1920px;text-align:center;font-size:196px;top:470px');
+const t3=el('div','abs serif',L2,'Fantasy dollars. Real odds. Your friends.');css(t3,'width:1920px;text-align:center;font-size:64px;top:720px;color:var(--brand2)');
+function turn(t){
+  if(!show(L2,t>=4.8&&t<8.7))return;
+  const col=tw(t,7.75,8.5,'inExpo');
+  const a=slam(t,4.88,.26),b=slam(t,6.0,.24),c=tw(t,6.85,7.35);
+  const up=tw(t,5.85,6.1,'outExpo');
+  put(t1,{y:-up*40,s:a.s*(1-col),o:a.o*(1-up*.55)*(1-col),blur:a.blur+col*10});
+  put(t2,{s:b.s*(1-col),o:b.o*(1-col),blur:b.blur+col*10,y:col*-20});
+  put(t3,{y:(1-c)*30,o:c*(1-col),blur:(1-c)*8+col*10,s:1-col});
+}
+
+/* ================= LINE 8.6 – 10.4 (real Senate odds) ================= */
+const L3=layer(4);
+const CX0=170,CX1=1750,CY=(p)=>900-(p-.2)/.56*640;
+const grid=el('div','abs',L3);
+[.25,.5,.75].forEach(g=>{const l=el('div','abs',grid);css(l,`left:${CX0}px;width:${CX1-CX0}px;height:1px;top:${CY(g)}px;background:#ffffff14`);
+  const tx=el('div','abs mono',grid,Math.round(g*100)+'%');css(tx,`left:${CX1+18}px;top:${CY(g)-14}px;font-size:22px;color:var(--dim)`)});
+const chartCap=el('div','abs',L3,'<span class="mono" style="color:var(--dim);font-size:24px">POLYMARKET · LIVE</span><div style="font-size:44px;font-weight:700;letter-spacing:-.02em;margin-top:10px">Which party will win the Senate in 2026?</div><div style="font-size:30px;color:var(--muted);margin-top:6px">Democratic Party</div>');at(chartCap,CX0,110);
+const headLbl=el('div','abs k mono',L3,'');css(headLbl,'font-size:46px;color:var(--yes);letter-spacing:-.02em');
+const SEN=DATA.senate;
+const senD='M'+SEN.map((p,i)=>`${(CX0+(CX1-CX0)*i/(SEN.length-1)).toFixed(1)},${CY(p).toFixed(1)}`).join(' L');
+function lineScene(t){
+  if(!show(L3,t>=8.4&&t<10.9))return;
+  const o=tw(t,8.5,8.9,'outCubic'),out=tw(t,10.0,10.7,'outExpo');
+  put(grid,{o:o*(1-out)});put(chartCap,{o:tw(t,8.7,9.1)*(1-out),y:(1-tw(t,8.7,9.1))*20-out*40,blur:out*10});
+  const b=tw(t,8.6,9.95,'inOutCubic');
+  const idx=Math.min(SEN.length-1,Math.round(b*(SEN.length-1)));
+  const x=CX0+(CX1-CX0)*idx/(SEN.length-1),y=CY(SEN[idx]);
+  headLbl.textContent=Math.round(SEN[idx]*1000)/10+'%';
+  put(headLbl,{x:x-60,y:y-90,o:tw(t,8.7,8.9)*(1-out)});
+}
+
+/* ================= LOGO 10.0 – 13.1 ================= */
+const L4=layer(8);
+const LOGO_SVG=(sz,stroke)=>`<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none"><rect x="1" y="1" width="22" height="22" rx="6.5" fill="#3262ff"/><path d="M8 16.5V7.5h4.2a3 3 0 0 1 0 6H8" stroke="#fff" stroke-width="${stroke}" stroke-linecap="round" stroke-linejoin="round"/><circle cx="16.5" cy="16.5" r="1.6" fill="#fff"/></svg>`;
+const mark=el('div','abs',L4,LOGO_SVG(200,2.4));at(mark,860,250);
+const word=el('div','abs',L4);css(word,'width:1920px;top:500px;display:flex;justify-content:center');
+const WORD='Polymates';const wl=[...WORD].map(c=>{const s=el('span','k',word,c);css(s,'font-size:168px;display:inline-block');return s});
+const tag=el('div','abs serif',L4,'Prediction markets with your friends.');css(tag,'width:1920px;text-align:center;top:720px;font-size:72px;color:#cfd3da');
+function logo(t){
+  if(!show(L4,t>=9.95&&t<13.2))return;
+  const out=tw(t,12.6,13.15,'inExpo');
+  const sp=E.spring(P(t,10.0,10.9));
+  put(mark,{s:sp*(1+out*2.2),o:P(t,10.0,10.08)*(1-out),r:(1-tw(t,10,10.7))*-25,blur:out*16});
+  wl.forEach((s,i)=>{const p=tw(t,10.25+i*.045,10.75+i*.045);put(s,{y:(1-p)*80,o:p,blur:(1-p)*10})});
+  put(word,{s:1+out*.8,o:1-out,blur:out*16});
+  const tg=tw(t,11.0,11.6);put(tag,{y:(1-tg)*24,o:tg*(1-out),blur:(1-tg)*8+out*12});
+}
+
+/* ================= MARKETS 13.0 – 19.2 (3D grid, real markets) ================= */
+const L5=layer(3);
+const persp=el('div','persp',L5);
+const plane=el('div','abs p3',persp);css(plane,'width:1760px;height:780px;left:80px;top:150px;transform-origin:880px 390px');
+const CARDS=DATA.cards.slice(0,11);
+const cEls=[];
+for(let i=0;i<12;i++){
+  const c=el('div','abs card mc p3',plane);const col=i%4,row=Math.floor(i/4);
+  at(c,col*440,row*262);
+  if(i<CARDS.length){const d=CARDS[i];const pc=Math.round(d.p*100);
+    c.innerHTML=`<div class="hd"><img src="${d.icon}"><div class="t">${d.title}</div></div><div class="row"><span class="o">${d.out||'Yes'}</span><span class="p" style="color:${pc>=50?'var(--yes)':'var(--no)'}">${pc}%</span></div><div class="bt"><span class="yesb">Buy Yes</span><span class="nob">Buy No</span></div>`;}
+  else{c.innerHTML=`<div class="hd"><div style="width:52px;height:52px;border-radius:10px;background:#3262ff33;display:grid;place-items:center;font-size:28px">+</div><div class="t">…and every other market<br><span style="color:var(--muted);font-weight:500">politics · sports · crypto · culture</span></div></div>`;c.style.borderStyle='dashed'}
+  const sh=el('div','abs',plane);css(sh,`left:${col*440+20}px;top:${row*262+30}px;width:360px;height:180px;border-radius:24px;background:#000;filter:blur(26px)`);plane.insertBefore(sh,c);
+  cEls.push({c,sh,col,row});
+}
+const mCap=el('div','abs serif title',L5,'Every real Polymarket market.');at(mCap,120,70);
+const mSub=el('div','abs cap',L5,'Live odds · resolves exactly like Polymarket · fantasy dollars');at(mSub,124,190);
+function markets(t){
+  if(!show(L5,t>=12.7&&t<19.4))return;
+  const fl=tw(t,17.7,18.75,'inOutQuint');
+  const rx=lerp(52,0,fl),rz=lerp(-14+tw(t,13,17.7,'inOutCubic')*5,0,fl);
+  // zoom into card 0 (top-left) at the end
+  const zs=lerp(.86+tw(t,13,17.7,'lin')*.07,4.6,fl);
+  const tx=fl*680*zs,ty=lerp(130,0,fl)+fl*284*zs;
+  plane.style.transform=`translate3d(${tx.toFixed(1)}px,${ty.toFixed(1)}px,0) rotateX(${rx.toFixed(2)}deg) rotate(${rz.toFixed(2)}deg) scale(${zs.toFixed(3)})`;
+  plane.style.opacity=tw(t,12.75,13.2,'outCubic');
+  cEls.forEach((o,i)=>{const t0=13.15+i*.1,p=P(t,t0,t0+.55);
+    let z=0;if(p<1){const g=p<.7?1-Math.pow(p/.7,2):Math.sin((p-.7)/.3*Math.PI)*.06;z=900*g}
+    o.c.style.transform=`translateZ(${z.toFixed(1)}px)`;o.c.style.opacity=P(t,t0,t0+.12).toFixed(3);
+    o.sh.style.opacity=(P(t,t0,t0+.5)*.55*(1-z/1100)).toFixed(3);o.sh.style.transform=`scale(${(1.3-.3*(1-z/900)).toFixed(3)})`});
+  const c1=tw(t,14.1,14.6),c2=tw(t,14.9,15.4),co=tw(t,17.4,17.8,'inExpo');
+  put(mCap,{y:(1-c1)*30,o:c1*(1-co),blur:(1-c1)*10+co*10});put(mSub,{y:(1-c2)*20,o:c2*(1-co),blur:(1-c2)*8});
+}
+
+/* ================= LEAGUES 19.0 – 27.0 ================= */
+const L6=layer(6);
+const lgTitle=el('div','abs serif title',L6,'Start a league.');css(lgTitle,'width:1920px;text-align:center;top:50px');
+const inv=el('div','abs',L6);css(inv,'width:1920px;top:430px;text-align:center');
+const invLbl=el('div','mono',inv,'INVITE CODE');css(invLbl,'font-size:24px;color:var(--dim);letter-spacing:.2em');
+const invCode=el('div','mono',inv,'');css(invCode,'font-size:150px;font-weight:700;letter-spacing:.08em;margin-top:6px;min-height:170px');
+const invUrl=el('div','mono',inv,'poly.floatingkeys.com/join/FJFW5G');css(invUrl,'font-size:28px;color:var(--brand2);margin-top:6px');
+const avs=FRIENDS.map(([n,h],i)=>{const w=el('div','abs',L6);css(w,'width:140px;text-align:center');const a=avatar(w,n,h,108);css(a,'position:relative;margin:0 auto');
+  const lbl=el('div','',w,n);css(lbl,'font-size:24px;font-weight:600;margin-top:10px');return w});
+const friendsCap=el('div','abs cap',L6,'8 friends · $10,000 in fantasy cash each');css(friendsCap,'width:1920px;text-align:center;top:930px;color:var(--text)');
+// modes
+const modesTitle=el('div','abs serif title',L6,'Two ways to play.');css(modesTitle,'width:1920px;text-align:center;top:70px');
+function panel(x,badge,bcol,h,sub){const p=el('div','abs card',L6);css(p,`left:${x}px;top:250px;width:760px;height:660px;padding:38px 40px`);
+  p.innerHTML=`<span class="badge" style="background:${bcol}22;color:${bcol}">${badge}</span><div style="font-size:44px;font-weight:800;letter-spacing:-.03em;margin-top:22px;line-height:1.08">${h}</div><div style="font-size:26px;color:var(--muted);margin-top:12px">${sub}</div>`;return p}
+const pm=panel(160,'MIRROR','#6f95ff','Trade against Polymarket’s<br>live order book','Paper-trade the real thing with friends.');
+const pe=panel(1000,'EXCHANGE','#53e67f','Your league runs<br>its own order book','20–30 friends trading only with each other.');
+// mirror ladder
+const mLad=el('div','abs',pm);css(mLad,'left:40px;top:300px;width:680px');
+const ASKS=[[.75,1840],[.74,920],[.73,2210],[.72,640]],BIDS=[[.71,1530],[.70,2760],[.69,980],[.68,1700]];
+const mLv=[];
+ASKS.forEach(([p,s])=>{const l=el('div','lvl',mLad,`<span style="color:var(--no)">${Math.round(p*100)}¢</span><span style="color:var(--muted)">${fmt(s)}</span><i style="background:var(--nod);width:${s/30}px"></i>`);css(l,'margin-bottom:6px');mLv.push(l)});
+BIDS.forEach(([p,s])=>{const l=el('div','lvl',mLad,`<span style="color:var(--yes)">${Math.round(p*100)}¢</span><span style="color:var(--muted)">${fmt(s)}</span><i style="background:var(--yesd);width:${s/30}px"></i>`);css(l,'margin-bottom:6px');mLv.push(l)});
+const live=el('div','abs mono',pm,'● LIVE · clob.polymarket.com');css(live,'left:40px;top:250px;font-size:20px;color:var(--yes)');
+const mkt=el('div','abs chip',pm,'Market buy · $500');css(mkt,'left:420px;top:240px;font-size:22px;padding:10px 18px;background:#3262ff;border-color:#3262ff');
+// exchange matching
+pe.style.overflow='hidden';const ex=el('div','abs',pe);css(ex,'left:0;top:290px;width:760px;height:340px');
+const yesO=el('div','abs chip',ex,'');yesO.innerHTML=`<span class="av" style="width:44px;height:44px;font-size:20px;background:linear-gradient(135deg,hsl(330 85% 62%),hsl(30 80% 45%))">M</span>maya · Buy <b style="color:var(--yes)">Yes 72¢</b>`;
+const noO=el('div','abs chip',ex,'');noO.innerHTML=`<span class="av" style="width:44px;height:44px;font-size:20px;background:linear-gradient(135deg,hsl(200 85% 62%),hsl(260 80% 45%))">D</span>dev · Buy <b style="color:var(--no)">No 28¢</b>`;
+const ring=el('div','abs',ex);css(ring,'width:200px;height:200px;border-radius:50%;border:4px solid var(--yes);left:280px;top:10px');
+const mint=el('div','abs',ex,'<div class="mono" style="font-size:30px;font-weight:700">72¢ + 28¢ = <span style="color:var(--yes)">$1.00</span></div><div style="font-size:24px;color:var(--muted);margin-top:8px">matched · a new Yes and No share are minted</div>');css(mint,'left:40px;top:230px;width:680px;text-align:center');
+function leagues(t){
+  if(!show(L6,t>=18.9&&t<27.2))return;
+  // part A: invite
+  const A=t<22.95;
+  const outA=tw(t,22.35,22.85,'inExpo');
+  const ti=tw(t,19.15,19.6);put(lgTitle,{y:(1-ti)*30,o:ti*(1-outA)*(A?1:0),blur:(1-ti)*10+outA*10});
+  put(inv,{o:tw(t,19.3,19.5)*(1-outA)*(A?1:0),s:1-outA*.4});
+  const n=Math.max(0,Math.min(6,Math.floor((t-19.6)/0.1)+1));invCode.textContent='FJFW5G'.slice(0,t<19.6?0:n);
+  put(invUrl,{o:tw(t,20.25,20.5)});
+  avs.forEach((a,i)=>{const t0=20.4+i*.16,p=tw(t,t0,t0+.5,'outBack'),ang=-Math.PI/2+i*(Math.PI*2/8)+.2;
+    const tx=960+Math.cos(ang)*660-70,ty=560+Math.sin(ang)*270-70;const sx=960+Math.cos(ang)*1500-70,sy=470+Math.sin(ang)*900-70;
+    put(a,{x:lerp(sx,tx,P(t,t0,t0+.5)*0+tw(t,t0,t0+.5,'outExpo'))+0,y:lerp(sy,ty,tw(t,t0,t0+.5,'outExpo')),s:(.6+.4*p)*(1-outA*.5),o:P(t,t0,t0+.1)*(1-outA)*(A?1:0),blur:outA*8});
+    a.style.left='0';a.style.top='0'});
+  const fc=tw(t,21.75,22.1);put(friendsCap,{o:fc*(1-outA)*(A?1:0),y:(1-fc)*16});
+  // part B: modes
+  const B=t>=22.8,inB=tw(t,22.85,23.4),outB=tw(t,26.6,27.05,'inExpo');
+  put(modesTitle,{o:B?inB*(1-outB):0,y:(1-inB)*30,blur:(1-inB)*10+outB*10});
+  put(pm,{o:B?tw(t,23.0,23.4)*(1-outB):0,y:(1-tw(t,23.0,23.5))*80-outB*60,blur:outB*10});
+  put(pe,{o:B?tw(t,23.15,23.55)*(1-outB):0,y:(1-tw(t,23.15,23.65))*80-outB*60,blur:outB*10});
+  // mirror: market order eats the top two ask levels
+  const eat=tw(t,24.35,24.8,'outCubic');
+  put(mkt,{o:tw(t,23.9,24.1)*(1-tw(t,24.3,24.45)),x:-eat*0,y:(1-tw(t,23.9,24.2))*-20+tw(t,24.1,24.35,'inExpo')*60,s:1});
+  mLv.forEach((l,i)=>{let s=1,o=1;if(i===3){o=1-eat;s=1-eat*.1}if(i===2){const e2=tw(t,24.55,24.95);o=1;l.querySelector('i').style.width=(2210*(1-e2*.6)/30)+'px'}
+    put(l,{o:o*tw(t,23.3+i*.05,23.6+i*.05),sx:s})});
+  live.style.opacity=(.55+.45*Math.abs(Math.sin(t*4))).toFixed(3);
+  // exchange: two orders meet in the middle
+  const m1=tw(t,24.6,25.55,'inOutExpo'),hit=P(t,25.55,25.56),fade=tw(t,25.6,25.9);
+  put(yesO,{x:lerp(-360,24,m1),y:80,o:tw(t,23.9,24.2),s:1});
+  put(noO,{x:lerp(760,400,m1),y:80,o:tw(t,24.05,24.35),s:1});
+  yesO.style.zIndex=2;
+  const rp=P(t,25.55,26.1);put(ring,{s:.3+rp*1.6,o:(1-rp)*(t>=25.55?1:0)});
+  const mi=tw(t,25.75,26.15);put(mint,{o:mi,y:(1-mi)*20,blur:(1-mi)*8});
+}
+
+/* ================= TRADE 27.0 – 33.0 ================= */
+const L7=layer(6);
+const trTitle=el('div','abs serif title',L7,'Trade in one tap.');at(trTitle,130,80);
+const left=el('div','abs',L7);css(left,'left:130px;top:250px;width:860px');
+left.innerHTML=`<div style="display:flex;gap:20px;align-items:center"><img src="${DATA.cards[0].icon}" style="width:84px;height:84px;border-radius:14px"><div><div style="font-size:40px;font-weight:800;letter-spacing:-.025em;line-height:1.1">Which party will win<br>the Senate in 2026?</div></div></div>`;
+const trBig=el('div','abs k mono',L7,'72% chance');css(trBig,'left:130px;top:420px;font-size:64px;color:var(--yes);letter-spacing:-.03em');
+const trChart=el('div','abs',L7);css(trChart,'left:130px;top:520px;width:860px;height:360px');
+trChart.innerHTML=`<svg width="860" height="360" style="overflow:visible"><defs><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3262ff" stop-opacity=".4"/><stop offset="1" stop-color="#3262ff" stop-opacity="0"/></linearGradient></defs><path id="trA" fill="url(#ag)"/><path id="trL" fill="none" stroke="#5b85ff" stroke-width="4" stroke-linejoin="round"/></svg>`;
+const trPts=SEN.map((p,i)=>[860*i/(SEN.length-1),340-(p-.2)/.56*320]);
+const trLD='M'+trPts.map(q=>q.map(v=>v.toFixed(1)).join(',')).join(' L');
+document.getElementById('trL').setAttribute('d',trLD);document.getElementById('trA').setAttribute('d',trLD+' L860,360 L0,360 Z');
+const panelT=el('div','abs card',L7);css(panelT,'left:1100px;top:200px;width:680px;height:760px;padding:36px');
+panelT.innerHTML=`<div style="display:flex;gap:16px;align-items:center"><img src="${DATA.cards[0].icon}" style="width:56px;height:56px;border-radius:10px"><div style="font-size:30px;font-weight:700">Democratic Party</div></div>
+<div style="display:flex;gap:28px;margin-top:30px;font-size:28px;font-weight:700;border-bottom:1px solid #ffffff14;padding-bottom:14px"><span style="border-bottom:3px solid #fff;padding-bottom:12px">Buy</span><span style="color:var(--dim)">Sell</span><span style="margin-left:auto;color:var(--muted);font-weight:500">Market</span></div>
+<div style="display:flex;gap:14px;margin-top:28px"><div id="byes" style="flex:1;text-align:center;padding:24px 0;border-radius:14px;font-size:32px;font-weight:800;background:#2a2d35;color:var(--muted)">Yes 72¢</div><div style="flex:1;text-align:center;padding:24px 0;border-radius:14px;font-size:32px;font-weight:800;background:#2a2d35;color:var(--muted)">No 29¢</div></div>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-top:44px"><span style="font-size:32px;font-weight:600">Amount</span><span id="amt" class="mono" style="font-size:84px;font-weight:700">$0</span></div>
+<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:10px">${['+$1','+$20','+$100','Max'].map(s=>`<span style="padding:10px 18px;border-radius:10px;background:#2a2d35;font-size:22px;font-weight:600">${s}</span>`).join('')}</div>
+<div style="display:flex;justify-content:space-between;margin-top:36px;font-size:28px"><span style="color:var(--muted)">To win</span><span id="towin" class="mono" style="color:var(--yes);font-weight:700;font-size:40px">$0</span></div>
+<div id="buyb" style="margin-top:34px;text-align:center;padding:26px 0;border-radius:16px;background:#3262ff;font-size:32px;font-weight:800;box-shadow:0 6px 0 #1d3fbf">Buy Yes</div>`;
+const toast=el('div','abs card',L7,'<div style="display:flex;gap:16px;align-items:center"><div style="width:52px;height:52px;border-radius:50%;background:#00ae4b;display:grid;place-items:center;font-size:30px;font-weight:900">✓</div><div><div style="font-size:28px;font-weight:700">Filled · 347 Yes @ 72¢</div><div style="font-size:22px;color:var(--muted)">Which party will win the Senate?</div></div></div>');css(toast,'left:1150px;top:60px;padding:20px 28px;border-radius:18px');
+const pf=el('div','abs',L7);css(pf,'left:130px;top:930px;display:flex;gap:30px;align-items:baseline');
+pf.innerHTML='<span class="cap">Portfolio</span><span id="pfv" class="mono" style="font-size:44px;font-weight:700">$10,000.00</span><span id="pfd" class="mono" style="font-size:32px;color:var(--yes);font-weight:700"></span>';
+const confetti=el('div','abs',L7);const CONF=[];{const r=rnd(7);const cols=['#3262ff','#53e67f','#fdc503','#ff5952','#9b51e0','#0093fd'];
+  for(let i=0;i<60;i++){const c=el('i','abs',confetti);const w=8+r()*10;css(c,`width:${w}px;height:${w*.55}px;background:${cols[i%6]};border-radius:2px`);
+    const a=Math.PI*2*i/60+r()*.4,v=300+r()*520;CONF.push({c,vx:Math.cos(a)*v,vy:Math.sin(a)*v-420,rot:r()*720-360})}}
+function trade(t){
+  if(!show(L7,t>=26.9&&t<33.3))return;
+  const out=tw(t,32.6,33.1,'inExpo'),inn=tw(t,27.0,27.55);
+  const ti=tw(t,27.2,27.7);put(trTitle,{o:ti*(1-out),y:(1-ti)*30,blur:(1-ti)*10+out*10});
+  put(left,{o:inn*(1-out),x:(1-inn)*-60});put(trBig,{o:tw(t,27.3,27.7)*(1-out),x:(1-tw(t,27.3,27.8))*-60});
+  put(trChart,{o:inn*(1-out)});
+  const L=drawPath(document.getElementById('trL'),0,tw(t,27.3,28.6,'inOutCubic'));document.getElementById('trA').style.opacity=tw(t,28.2,28.8)*.9;
+  put(panelT,{o:tw(t,27.15,27.6)*(1-out),y:(1-tw(t,27.15,27.75))*90-out*40,blur:out*10});
+  const ys=document.getElementById('byes');const sel=t>=27.9;
+  ys.style.background=sel?'#00ae4b':'#2a2d35';ys.style.color=sel?'#fff':'var(--muted)';
+  ys.style.transform=`scale(${(1-pulse(t,27.9,14)*.08).toFixed(3)})`;
+  const amt=t<28.3?'$0':t<28.5?'$2':t<28.7?'$25':'$250';document.getElementById('amt').textContent=amt;
+  const w=tw(t,28.8,29.25,'outCubic');document.getElementById('towin').textContent='$'+Math.round(347*w);
+  const bb=document.getElementById('buyb');const press=pulse(t,29.6,10);bb.style.transform=`translateY(${(press*5).toFixed(1)}px)`;bb.style.boxShadow=`0 ${(6-press*5).toFixed(1)}px 0 #1d3fbf`;
+  bb.textContent=t>=29.75?'✓ Bought':'Buy Yes';bb.style.background=t>=29.75?'#00ae4b':'#3262ff';
+  const tp=tw(t,29.8,30.2,'outBack');put(toast,{o:P(t,29.8,29.9)*(1-out),y:(1-tp)*-40,s:.9+.1*tp});
+  // confetti from the buy button
+  const ct=t-29.75;confetti.style.display=ct>0&&ct<1.6?'':'none';
+  if(ct>0)CONF.forEach(o=>{const x=1440+o.vx*ct*.9,y=900+o.vy*ct+700*ct*ct;o.c.style.transform=`translate(${x.toFixed(1)}px,${y.toFixed(1)}px) rotate(${(o.rot*ct).toFixed(0)}deg)`;o.c.style.opacity=(1-P(ct,1,1.6)).toFixed(2)});
+  const g=tw(t,30.6,31.8,'outCubic');document.getElementById('pfv').textContent='$'+fmt(10000+41.7*g,2);
+  document.getElementById('pfd').textContent=t>30.6?'+$'+fmt(41.7*g,2):'';put(pf,{o:tw(t,27.6,28)*(1-out)});
+}
+
+/* ================= LEADERBOARD 33.0 – 39.0 ================= */
+const L8=layer(6);
+const lbTitle=el('div','abs serif title',L8,'Then climb the leaderboard.');at(lbTitle,130,70);
+const RX0=150,RX1=1040,RY0=300,RY1=900;
+const raceSvg=el('div','abs',L8);css(raceSvg,`left:0;top:0;width:1920px;height:1080px`);
+const RACERS=[['maya',330,1284],['dev',200,912],['priya',280,407],['jordan',40,-120],['sam',150,-260]];
+let rsvg=`<svg width="1920" height="1080" style="overflow:visible">`;
+[0,1,2,3].forEach(i=>{const y=RY0+i*(RY1-RY0)/3;rsvg+=`<line x1="${RX0}" x2="${RX1}" y1="${y}" y2="${y}" stroke="#ffffff10"/>`});
+const RP=RACERS.map(([n,h,end],k)=>{const r=rnd(11+k*7);const pts=[];let v=0;for(let i=0;i<=40;i++){const tgt=end*i/40;v+= (tgt-v)*.25+(r()-.5)*260;if(i===40)v=end;pts.push(v)}return pts});
+const ry=v=>RY1-(v+500)/2000*(RY1-RY0);
+RP.forEach((pts,k)=>{const d='M'+pts.map((v,i)=>`${(RX0+(RX1-RX0)*i/40).toFixed(1)},${ry(v).toFixed(1)}`).join(' L');
+  rsvg+=`<path id="rc${k}" d="${d}" fill="none" stroke="hsl(${RACERS[k][1]} 85% 64%)" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>`});
+rsvg+='</svg>';raceSvg.innerHTML=rsvg;
+const raceHeads=RACERS.map(([n,h])=>{const w=el('div','abs',L8);const a=avatar(w,n,h,52);css(a,'position:relative;border:3px solid #0a0c11');const lb=el('div','abs',w,n);css(lb,'left:62px;top:12px;font-size:22px;font-weight:700;white-space:nowrap');return w});
+const pod=el('div','abs',L8);css(pod,'left:1300px;top:260px;width:580px;height:700px');
+const PODS=[[1,'maya',330,1284,320,190],[0,'dev',200,912,230,0],[2,'priya',280,407,170,380]];
+const podEls=PODS.map(([rank,n,h,pnl,ht,x])=>{const col=el('div','abs',pod);css(col,`left:${x}px;top:${700-ht}px;width:180px;height:${ht}px;border-radius:18px 18px 0 0;background:linear-gradient(180deg,${['#c0c6d3','#fdc503','#d98a4a'][rank]}55,#1c1f27 70%);border:1px solid #ffffff1a;transform-origin:bottom`);
+  const num=el('div','k',col,['2','1','3'][rank]);css(num,'text-align:center;font-size:72px;margin-top:20px;color:#ffffffcc');
+  const top=el('div','abs',pod);css(top,`left:${x}px;width:180px;text-align:center;top:${700-ht-170}px`);
+  const a=avatar(top,n,h,96);css(a,'position:relative;margin:0 auto');
+  const nm=el('div','',top,`<div style="font-size:26px;font-weight:700;margin-top:10px">${n}</div><div class="mono" style="font-size:26px;color:var(--yes);font-weight:700">+$${fmt(pnl)}</div>`);
+  return{col,top,rank}});
+const crown=el('div','abs',pod,'👑');css(crown,'left:248px;top:150px;font-size:56px;z-index:3');
+const bigWin=el('div','abs card',L8);css(bigWin,'left:150px;top:945px;padding:16px 26px;border-radius:16px;display:flex;gap:18px;align-items:center;font-size:26px');
+bigWin.innerHTML=`<span style="color:var(--muted)">Biggest win this month</span><b>maya</b><span style="color:var(--muted)">Texas Senate</span><span class="mono">$180 → <b style="color:var(--yes)">$492</b></span>`;
+const seasonChip=el('div','abs chip',L8,'Season 1 · this week');at(seasonChip,1460,90);
+function leaderboard(t){
+  if(!show(L8,t>=32.9&&t<39.3))return;
+  const out=tw(t,38.55,39.05,'inExpo');
+  const ti=tw(t,33.15,33.65);put(lbTitle,{o:ti*(1-out),y:(1-ti)*30,blur:(1-ti)*10+out*10});
+  put(seasonChip,{o:tw(t,33.5,33.8)*(1-out)});
+  raceSvg.style.opacity=(tw(t,33.1,33.4)*(1-out)).toFixed(3);
+  const b=tw(t,33.4,36.3,'inOutCubic');
+  RP.forEach((pts,k)=>{const p=document.getElementById('rc'+k);const L=drawPath(p,0,b);const pt=p.getPointAtLength(Math.max(.1,b*L));
+    put(raceHeads[k],{x:pt.x-26,y:pt.y-26,o:tw(t,33.4,33.6)*(1-out)})});
+  podEls.forEach((o,i)=>{const t0=36.3+[.15,0,.3][o.rank];const g=E.spring(P(t,t0,t0+.9));
+    put(o.col,{sy:Math.max(0.001,g),o:P(t,t0,t0+.1)*(1-out)});const tp=tw(t,t0+.25,t0+.7,'outBack');put(o.top,{y:(1-tp)*40,o:P(t,t0+.25,t0+.4)*(1-out),s:.8+.2*tp})});
+  const cr=tw(t,37.0,37.4,'outBack');put(crown,{o:P(t,37,37.1)*(1-out),y:(1-cr)*-40,r:(1-cr)*-30});
+  const bw=tw(t,37.3,37.7);put(bigWin,{o:bw*(1-out),y:(1-bw)*30});
+}
+
+/* ================= AGENTS 39.0 – 47.0 ================= */
+const L9=layer(6);
+const agTitle=el('div','abs serif title',L9,'Bring your AI.');at(agTitle,130,70);
+const agSub=el('div','abs cap',L9,'Claude Code, Cursor, Codex — any agent trades over MCP.');at(agSub,134,190);
+const term=el('div','abs term',L9);css(term,'left:130px;top:290px;width:1080px;height:640px');
+term.innerHTML=`<div class="bar"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i><span class="mono" style="margin-left:14px;color:var(--dim);font-size:20px">claude — polymates</span></div><div class="body" id="tb"></div>`;
+const tb=document.getElementById('tb');
+const CMD='$ claude mcp add --transport http polymates \\\n    https://polymates-api…run.app/mcp';
+const ASK='> buy $200 of Senate D if the spread is tight';
+const CALLS=[[42.55,'⏺ polymates.search_markets(query: "senate")','  ⎿ 14 events · Senate D 72%'],
+  [43.25,'⏺ polymates.get_order_book(market_id: "562793")','  ⎿ bid 71¢ · ask 72¢ · spread 1¢'],
+  [43.95,'⏺ polymates.place_order(buy yes · 277 @ 0.72)','  ⎿ ✓ filled 277 shares']];
+const code=el('div','abs term',L9);css(code,'left:1270px;top:290px;width:520px;height:640px');
+code.innerHTML=`<div class="bar"><span class="mono" style="color:var(--dim);font-size:20px">bot.js</span><span id="livb" class="mono" style="margin-left:auto;color:var(--yes);font-size:18px">● LIVE · every 60s</span></div><div class="body" style="font-size:20px;line-height:1.75"><span style="color:#62646a">// runs on our servers, 24/7</span>
+<span style="color:#b48cff">function</span> <span style="color:#6f95ff">onTick</span>(pm) {
+  <span style="color:#b48cff">const</span> m = pm.market(<span style="color:#53e67f">'562793'</span>)
+  <span style="color:#b48cff">const</span> h = pm.history(m.id, <span style="color:#fdc503">20</span>)
+  <span style="color:#b48cff">if</span> (m.price &lt; avg(h) - <span style="color:#fdc503">0.03</span>)
+    pm.buy(m.id, <span style="color:#53e67f">'yes'</span>, m.price, <span style="color:#fdc503">50</span>)
+}</div><div id="blog" class="mono" style="padding:0 32px;font-size:19px;color:var(--muted);line-height:1.7"></div>`;
+const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+function agents(t){
+  if(!show(L9,t>=38.9&&t<47.3))return;
+  const out=tw(t,46.6,47.1,'inExpo');
+  const ti=tw(t,39.15,39.6);put(agTitle,{o:ti*(1-out),y:(1-ti)*30,blur:(1-ti)*10+out*10});
+  const su=tw(t,39.5,39.9);put(agSub,{o:su*(1-out),y:(1-su)*20});
+  put(term,{o:tw(t,39.3,39.7)*(1-out),y:(1-tw(t,39.3,39.8))*70,blur:out*10});
+  const nc=Math.floor(CMD.length*P(t,39.8,41.1));const na=Math.floor(ASK.length*P(t,41.5,42.15));
+  let h=`<span style="color:#cfd3da">${esc(CMD.slice(0,nc))}</span>`;
+  if(t>=41.35)h+=`\n\n<span style="color:#fff">${esc(ASK.slice(0,na))}</span>`;
+  CALLS.forEach(([t0,a,b])=>{if(t>=t0)h+=`\n<span style="color:#6f95ff">${esc(a)}</span>`;if(t>=t0+.35)h+=`\n<span style="color:${b.includes('✓')?'#53e67f':'#9aa0aa'}">${esc(b)}</span>`});
+  const cur=(Math.floor(t*3)%2===0)?'<span style="background:#cfd3da">&nbsp;</span>':'';
+  tb.innerHTML=h+(t<44.4?cur:'');
+  const ci=tw(t,44.55,45.1);put(code,{o:ci*(1-out),x:(1-ci)*120,blur:(1-ci)*10+out*10});
+  document.getElementById('livb').style.opacity=(.5+.5*Math.abs(Math.sin((t-45)*3.2))).toFixed(2);
+  let lg='';if(t>=45.6)lg+='tick 1 · price 0.72 · hold\n';if(t>=46.15)lg+='<span style="color:#53e67f">tick 2 · price 0.68 · bought 50 @ 0.68</span>';
+  document.getElementById('blog').innerHTML=lg.replace('\n','<br>');
+}
+
+/* ================= QUANT 47.0 – 53.0 (real backtest) ================= */
+const L10=layer(6);
+const qTitle=el('div','abs serif title',L10,'Backtest like a quant.');at(qTitle,130,70);
+const qCap=el('div','abs mono',L10,'Mean reversion · Senate D + Fed hike · last 30 days of real Polymarket prices');css(qCap,'left:134px;top:192px;font-size:24px;color:var(--muted)');
+const BT=DATA.backtest,EQ=BT.equity;
+const eqMin=Math.min(...EQ.map(e=>e[0])),eqMax=Math.max(...EQ.map(e=>e[0]));
+const QX0=150,QX1=1200,QY0=290,QY1=880;
+const qy=v=>QY1-(v-eqMin)/(eqMax-eqMin)*(QY1-QY0);
+const qSvg=el('div','abs',L10);
+const eqD='M'+EQ.map((e,i)=>`${(QX0+(QX1-QX0)*i/(EQ.length-1)).toFixed(1)},${qy(e[0]).toFixed(1)}`).join(' L');
+const bmD='M'+EQ.map((e,i)=>`${(QX0+(QX1-QX0)*i/(EQ.length-1)).toFixed(1)},${qy(e[1]).toFixed(1)}`).join(' L');
+qSvg.innerHTML=`<svg width="1920" height="1080" style="overflow:visible"><defs><linearGradient id="qag" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3262ff" stop-opacity=".35"/><stop offset="1" stop-color="#3262ff" stop-opacity="0"/></linearGradient></defs><line x1="${QX0}" x2="${QX1}" y1="${qy(1000)}" y2="${qy(1000)}" stroke="#ffffff30" stroke-dasharray="6 8"/><path id="eqa" d="${eqD} L${QX1},${QY1} L${QX0},${QY1} Z" fill="url(#qag)" opacity="0"/><path id="eqg" d="${eqD}" fill="none" stroke="#3262ff" stroke-width="16" filter="url(#tg)" opacity=".8"/><path id="eq" d="${eqD}" fill="none" stroke="#cfdcff" stroke-width="5" stroke-linejoin="round"/></svg>`;
+const legend=el('div','abs',L10,'<span style="color:#cfdcff">━ equity, $1,000 start</span>&nbsp;&nbsp;&nbsp;<span style="color:#7d8189">┅ break-even</span>');css(legend,'left:150px;top:900px;font-size:24px;font-weight:600');
+const S=BT.stats;
+const TILES=[['Sharpe',S.sharpe,2,''],['Return',S.totalReturn*100,2,'%'],['Max drawdown',S.maxDrawdown*100,2,'%'],['Trades',S.trades,0,'']];
+const tiles=TILES.map(([k],i)=>{const d=el('div','abs card tile',L10,`<span>${k}</span><b>0</b>`);at(d,1290+(i%2)*235,300+Math.floor(i/2)*180);return d});
+const nerd=el('div','abs card',L10);css(nerd,'left:1290px;top:670px;width:440px;padding:22px 26px;border-radius:18px');
+const NERD=[['P(yes)','71.5%'],['decimal odds','1.40'],['american','−251'],['logit','0.92']];
+nerd.innerHTML=`<div class="mono" style="font-size:18px;color:var(--dim);letter-spacing:.14em;margin-bottom:10px">STATS FOR NERDS</div>`+NERD.map(([a,b])=>`<div class="nr" style="display:flex;justify-content:space-between;font-size:24px;padding:5px 0"><span style="color:var(--muted)">${a}</span><b class="mono">${b}</b></div>`).join('');
+const nrows=[...nerd.querySelectorAll('.nr')];
+function quant(t){
+  if(!show(L10,t>=46.9&&t<53.3))return;
+  const out=tw(t,52.6,53.1,'inExpo');
+  const ti=tw(t,47.15,47.6);put(qTitle,{o:ti*(1-out),y:(1-ti)*30,blur:(1-ti)*10+out*10});
+  put(qCap,{o:tw(t,47.5,47.9)*(1-out)});
+  const b=tw(t,47.6,49.7,'inOutCubic');
+  drawPath(document.getElementById('eq'),0,b);drawPath(document.getElementById('eqg'),0,b);document.getElementById('eqa').style.opacity=(tw(t,49.2,49.9)*.9).toFixed(3);
+  qSvg.style.opacity=(1-out).toFixed(3);put(legend,{o:tw(t,48,48.3)*(1-out)});
+  tiles.forEach((d,i)=>{const t0=48.5+i*.22,p=tw(t,t0,t0+.45,'outBack');put(d,{o:P(t,t0,t0+.1)*(1-out),s:.85+.15*p,y:(1-p)*20});
+    const [k,v,dp,u]=TILES[i];const val=v*tw(t,t0,t0+.9,'outCubic');d.querySelector('b').textContent=(v>0&&k==='Return'?'+':'')+val.toFixed(dp)+u;
+    d.querySelector('b').style.color=k==='Max drawdown'?'var(--no)':k==='Return'?'var(--yes)':'#fff'});
+  const ni=tw(t,50.3,50.7);put(nerd,{o:ni*(1-out),y:(1-ni)*30});nrows.forEach((r,i)=>put(r,{o:tw(t,50.5+i*.12,50.8+i*.12),x:(1-tw(t,50.5+i*.12,50.8+i*.12))*20}));
+}
+
+/* ================= MONTAGE 53.0 – 57.5 ================= */
+const L11=layer(7);
+const pTitle=el('div','abs serif title',L11,'Perps. Up to 50×.');css(pTitle,'width:1920px;text-align:center;top:150px');
+const pc=DATA.perps.filter(p=>['BTC','ANT','USA500'].includes(p.symbol));
+const pCards=pc.map((p,i)=>{const c=el('div','abs card',L11);css(c,`left:${180+i*540}px;top:340px;width:500px;height:420px;padding:32px;overflow:hidden`);
+  const up=(p.change||0)>=0;const col=up?'#53e67f':'#ff7767';const sp=p.spark,mn=Math.min(...sp),mx=Math.max(...sp);
+  const d='M'+sp.map((v,j)=>`${(500*j/(sp.length-1)).toFixed(1)},${(170-(v-mn)/(mx-mn||1)*150).toFixed(1)}`).join(' L');
+  c.innerHTML=`<div style="display:flex;gap:16px;align-items:center"><img src="${p.icon}" style="width:64px;height:64px;border-radius:14px;background:#fff"><div><div style="font-size:32px;font-weight:800">${p.symbol}</div><div style="font-size:24px;color:var(--muted)">${p.name}</div></div></div>
+  <svg width="500" height="180" style="position:absolute;left:0;top:140px"><defs><linearGradient id="pg${i}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity=".35"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs><path d="${d} L500,180 L0,180Z" fill="url(#pg${i})"/><path class="psp" d="${d}" fill="none" stroke="${col}" stroke-width="4"/></svg>
+  <div style="position:absolute;left:32px;bottom:30px;display:flex;align-items:baseline;gap:14px;width:436px"><span class="mono" style="font-size:44px;font-weight:700">$${fmt(p.price,p.price>1000?0:1)}</span><span class="mono" style="font-size:24px;color:${col}">${up?'+':''}${(p.change*100).toFixed(2)}%</span><span class="badge" style="margin-left:auto;background:#ffffff14;color:#cfd3da">${p.lev}X</span></div>`;return c});
+const eTitle=el('div','abs serif title',L11,'Election maps.');css(eTitle,'width:1920px;text-align:center;top:170px');
+const SEATS=DATA.seats;
+const eBar=el('div','abs',L11);css(eBar,'left:200px;top:400px;width:1520px');
+const segs=[['safe-d','#6f95ff'],['likely-d','#3262ff'],['lean-d','#8fb0ff'],['tossup','#9b51e0'],['lean-r','#ff9a8f'],['likely-r','#ff5952'],['safe-r','#ff7767']];
+const notUpD=SEATS.notUp.D,notUpR=SEATS.notUp.R;
+let ebh=`<div style="display:flex;justify-content:space-between;align-items:baseline"><span class="k" style="font-size:110px;color:#6f95ff">${SEATS.projected.D} DEM</span><span class="mono" style="font-size:28px;color:var(--muted)">${SEATS.toWin} to win</span><span class="k" style="font-size:110px;color:#ff7767">REP ${SEATS.projected.R}</span></div><div id="ebar" style="display:flex;gap:6px;height:30px;margin-top:30px">`;
+ebh+=`<div class="sg" style="flex:${notUpD};background:#6f95ff;border-radius:15px 0 0 15px;opacity:.55"></div>`;
+segs.forEach(([k,c])=>{const n=SEATS.segments[k];if(n)ebh+=`<div class="sg" style="flex:${n};background:${c}"></div>`});
+ebh+=`<div class="sg" style="flex:${notUpR};background:#ff7767;border-radius:0 15px 15px 0;opacity:.55"></div></div><div style="display:flex;justify-content:space-between;margin-top:22px;font-size:26px;color:var(--muted)"><span>47 today</span><span class="mono" style="color:#cfd3da">Real Polymarket odds · 2026 Senate</span><span>53 today</span></div>`;
+eBar.innerHTML=ebh;const sgs=[...eBar.querySelectorAll('.sg')];
+const kin=['Free.','Fantasy dollars.','Real odds.'].map(w=>{const e=el('div','abs k',L11,w);css(e,'width:1920px;text-align:center;font-size:180px;top:440px');return e});
+function montage(t){
+  if(!show(L11,t>=52.95&&t<57.75))return;
+  // perps 53.0 – 54.5
+  const pa=t<54.5,po=tw(t,54.3,54.5,'inExpo');
+  put(pTitle,{o:pa?tw(t,53.05,53.35)*(1-po):0,s:1+po*.2,blur:po*12});
+  pCards.forEach((c,i)=>{const t0=53.1+i*.1,p=tw(t,t0,t0+.4,'outBack');put(c,{o:pa?P(t,t0,t0+.1)*(1-po):0,y:(1-p)*80,s:(.9+.1*p)*(1+po*.15),blur:po*10});
+    const s=c.querySelector('.psp');drawPath(s,0,tw(t,t0+.1,t0+.9,'inOutCubic'))});
+  // elections 54.5 – 56.0
+  const ea=t>=54.5&&t<56.0,eo=tw(t,55.8,56.0,'inExpo');
+  put(eTitle,{o:ea?tw(t,54.5,54.8)*(1-eo):0,s:1+eo*.2,blur:eo*12});
+  put(eBar,{o:ea?tw(t,54.55,54.8)*(1-eo):0,blur:eo*10});
+  sgs.forEach((s,i)=>{s.style.transform=`scaleX(${tw(t,54.6+i*.05,54.95+i*.05,'outExpo').toFixed(3)})`;s.style.transformOrigin=i<sgs.length/2?'left':'right'});
+  // kinetic 56.0 – 57.5
+  [56.0,56.5,57.0].forEach((t0,i)=>{const sl=slam(t,t0,.2);const gone=t>=t0+.5-.02&&i<2;const fo=tw(t,57.3,57.55,'inExpo');put(kin[i],{s:sl.s*(1-fo*.6),o:gone?0:sl.o*(1-fo),blur:sl.blur+fo*14})});
+}
+
+/* ================= FINALE 57.5 – 63 ================= */
+const L12=layer(9);
+const LX=860,LY=230,LS=200/24; // logo box in px
+const sq=el('div','abs',L12);css(sq,`left:${LX+LS}px;top:${LY+LS}px;width:${22*LS}px;height:${22*LS}px;border-radius:${6.5*LS}px;background:#3262ff;box-shadow:0 0 120px #3262ff88`);
+const pW=el('div','abs',L12);pW.innerHTML=`<svg width="200" height="200" viewBox="0 0 24 24" fill="none"><path d="M8 16.5V7.5h4.2a3 3 0 0 1 0 6H8" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="16.5" cy="16.5" r="1.6" fill="#fff"/></svg>`;at(pW,LX,LY);
+const fWord=el('div','abs',L12);css(fWord,'width:1920px;top:480px;display:flex;justify-content:center');
+const fl=[...WORD].map(c=>{const s=el('span','k',fWord,c);css(s,'font-size:176px;display:inline-block');return s});
+const fTag=el('div','abs serif',L12,'Prediction markets with your friends.');css(fTag,'width:1920px;text-align:center;top:705px;font-size:76px;color:#dfe3ea');
+const fUrl=el('div','abs',L12);css(fUrl,'width:1920px;top:850px;display:flex;justify-content:center;gap:20px');
+fUrl.innerHTML=`<span class="chip mono" style="font-size:32px;background:#3262ff;border-color:#3262ff">poly.floatingkeys.com</span><span class="chip" style="font-size:28px;color:var(--muted)">MCP · bots · free</span>`;
+function finale(t){
+  if(!show(L12,t>=57.45))return;
+  const push=1+tw(t,59,63,'lin')*.035;
+  L12.style.transform=`scale(${push.toFixed(4)})`;L12.style.transformOrigin='960px 540px';
+  const sp=E.spring(P(t,58.8,59.6));put(sq,{s:Math.max(.001,sp),o:P(t,58.8,58.85)});
+  put(pW,{o:t>=58.8?1:0,s:1+pulse(t,58.8,8)*.12});
+  fl.forEach((s,i)=>{const p=tw(t,59.05+i*.045,59.55+i*.045);put(s,{y:(1-p)*80,o:p,blur:(1-p)*10})});
+  const tg=tw(t,59.7,60.3);put(fTag,{o:tg,y:(1-tg)*24,blur:(1-tg)*8});
+  const u=tw(t,60.25,60.75,'outBack');put(fUrl,{o:P(t,60.25,60.4),y:(1-u)*30,s:.9+.1*u});
+}
+
+/* ================= THREAD (the through-line) ================= */
+const th=document.getElementById('th'),thG=document.getElementById('thG'),head=document.getElementById('head');
+// P glyph scaled into the finale logo box
+const Pd=(()=>{const s=LS,x=LX,y=LY,f=(a,b)=>`${(x+a*s).toFixed(1)},${(y+b*s).toFixed(1)}`;
+  return `M${f(8,16.5)} L${f(8,7.5)} L${f(12.2,7.5)} A${3*s} ${3*s} 0 0 1 ${f(12.2,13.5)} L${f(8,13.5)}`})();
+function thread(t){
+  let d=null,a=0,b=0,o=1,headOn=true,hx=null,hy=null;
+  if(t>=7.6&&t<8.6){ // collapse to a point of light, then fly to the chart start
+    const p=tw(t,8.05,8.6,'inOutCubic');hx=lerp(960,CX0,p);hy=lerp(540,CY(SEN[0]),p);
+    head.setAttribute('transform',`translate(${hx},${hy}) scale(${(tw(t,7.6,8.05,'outBack')).toFixed(3)})`);head.style.opacity=1;
+    th.style.opacity=thG.style.opacity=0;return}
+  if(t>=8.6&&t<10.7){d=senD;b=tw(t,8.6,9.95,'inOutCubic');o=1-tw(t,10.0,10.7,'outCubic')*.85}
+  if(t>=57.5&&t<59.2){d=Pd;b=tw(t,57.6,58.75,'inOutCubic');o=1-tw(t,58.8,59.1);headOn=t<58.8}
+  if(!d){th.style.opacity=thG.style.opacity=head.style.opacity=0;return}
+  if(th.getAttribute('d')!==d){th.setAttribute('d',d);thG.setAttribute('d',d)}
+  const L=drawPath(th,a,b);drawPath(thG,a,b);th.style.opacity=o;thG.style.opacity=o*.9;
+  const pt=th.getPointAtLength(b*L);head.setAttribute('transform',`translate(${pt.x},${pt.y})`);head.style.opacity=(headOn&&b<1?o:0).toFixed(3);
+}
+
+/* ================= GLOBALS ================= */
+const glowA=document.getElementById('glowA'),glowB=document.getElementById('glowB'),grain=document.getElementById('grain'),fade=document.getElementById('fade'),flash=document.getElementById('flash'),flood=document.getElementById('flood');
+const TINT=[[0,'50,98,255'],[13,'50,98,255'],[19,'0,174,75'],[27,'50,98,255'],[33,'253,197,3'],[39,'155,81,224'],[47,'50,98,255'],[53,'83,230,127'],[57.5,'50,98,255']];
+function globals(t){
+  let tint=TINT[0][1];TINT.forEach(([s,c])=>{if(t>=s)tint=c});
+  glowA.style.background=`radial-gradient(circle,rgba(${tint},.26) 0%,rgba(${tint},.07) 35%,transparent 65%)`;
+  glowB.style.background='radial-gradient(circle,rgba(155,81,224,.16) 0%,transparent 60%)';
+  put(glowA,{x:960+Math.sin(t*.33)*380-900,y:500+Math.cos(t*.25)*180-900,s:1+Math.sin(t*.9)*.05,o:.85});
+  put(glowB,{x:960+Math.cos(t*.21)*520-900,y:620+Math.sin(t*.31)*220-900,o:.7});
+  const r=rnd(Math.floor(t*24)+3);grain.style.transform=`translate(${Math.floor(r()*200)}px,${Math.floor(r()*200)}px)`;
+  const sh=shake(t,HITS,16,8),sh2=shake(t,SOFT,5,10);let rgb=0;HITS.forEach(h=>rgb+=pulse(t,h,7)*9);
+  world.style.transform=`translate(${(sh.x+sh2.x).toFixed(2)}px,${(sh.y+sh2.y).toFixed(2)}px)`;
+  world.style.filter=rgb>0.4?`drop-shadow(${rgb.toFixed(1)}px 0 0 rgba(255,60,90,.5)) drop-shadow(${(-rgb).toFixed(1)}px 0 0 rgba(60,160,255,.5))`:'';
+  let fl=0;HITS.forEach(h=>fl+=pulse(t,h,5));fl+=pulse(t,29.75,7)*.4;flash.style.opacity=Math.min(1,fl).toFixed(3);
+  flood.style.opacity=(tw(t,18.45,18.95,'inCubic')*(1-tw(t,18.95,19.45,'outCubic'))).toFixed(3);
+  fade.style.opacity=(1-tw(t,0,0.35,'outCubic')+tw(t,DUR-0.6,DUR,'inCubic')).toFixed(3);
+}
+window.render=function(t){globals(t);hook(t);turn(t);lineScene(t);logo(t);markets(t);leagues(t);trade(t);leaderboard(t);agents(t);quant(t);montage(t);finale(t);thread(t);return true};
+window.ready=document.fonts.ready.then(()=>Promise.all([...document.images].map(i=>i.decode().catch(()=>{})))).then(()=>{render(0);return true});
+</script>
+</body>
+</html>

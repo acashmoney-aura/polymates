@@ -25,3 +25,10 @@ dist-ssr
 
 server/data
 server/node_modules
+
+# demo film render outputs
+film/frames/
+film/stills/
+film/*.mp4
+film/*.wav
+film/*-sheet.png
