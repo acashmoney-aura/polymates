@@ -1,5 +1,6 @@
 import { newAsyncContext, shouldInterruptAfterDeadline } from 'quickjs-emscripten'
 import { agentApi } from './agent-api.ts'
+import { getPerpAsset, listPerpAssets, perpsApi } from './perps.ts'
 import { db, markDirty, scriptLogs } from './state.ts'
 import type { Script, ScriptLog } from './types.ts'
 import { now } from './util.ts'
@@ -44,6 +45,15 @@ const pm = {
   marketSell: (marketId, outcome, size) => __call('order', { marketId, outcome, side: 'sell', type: 'market', size }),
   cancel: (orderId) => __call('cancel', orderId),
   cancelAll: (marketId) => __call('cancelAll', marketId),
+  perps: {
+    assets: (opts) => __call('perpAssets', opts ?? {}),
+    asset: (symbol, range) => __call('perpAsset', symbol, range ?? '1d'),
+    positions: (status) => __call('perpPositions', status ?? 'open'),
+    open: (o) => __call('perpOpen', o),
+    long: (symbol, amount, leverage, opts) => __call('perpOpen', { ...(opts ?? {}), symbol, side: 'long', amount, leverage: leverage ?? 1 }),
+    short: (symbol, amount, leverage, opts) => __call('perpOpen', { ...(opts ?? {}), symbol, side: 'short', amount, leverage: leverage ?? 1 }),
+    close: (positionId) => __call('perpClose', positionId),
+  },
   log: (...a) => __call('log', 'info', a.map((x) => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')),
 };
 const console = { log: pm.log, info: pm.log, warn: pm.log, error: (...a) => __call('log', 'error', a.map(String).join(' ')) };
@@ -60,6 +70,7 @@ export async function runScript(script: Script) {
   const league = db.leagues.get(script.leagueId)
   if (!league) return { ok: false, error: 'league missing' }
   const api = agentApi(script.userId, 'script')
+  const perp = perpsApi(script.userId, 'script')
   const ctx = await newAsyncContext()
   ctx.runtime.setMemoryLimit(MEMORY_LIMIT)
   ctx.runtime.setMaxStackSize(512 * 1024)
@@ -89,6 +100,11 @@ export async function runScript(script: Script) {
           case 'order': data = await api.placeOrder({ ...(args[0] as object), leagueId: L } as never); break
           case 'cancel': data = api.cancelOrder(String(args[0])); break
           case 'cancelAll': data = api.cancelAll(L, args[0] ? String(args[0]) : undefined); break
+          case 'perpAssets': data = (await listPerpAssets(args[0] as object)).map((x) => ({ ...x, spark: undefined })); break
+          case 'perpAsset': data = await getPerpAsset(String(args[0]), String(args[1] ?? '1d')); break
+          case 'perpPositions': data = perp.list(L, args[0] === 'all' || args[0] === 'closed' ? args[0] : 'open').positions; break
+          case 'perpOpen': data = await perp.open({ ...(args[0] as object), leagueId: L } as never); break
+          case 'perpClose': data = perp.close(String(args[0])); break
           default: throw new Error(`unknown op ${op}`)
         }
         return ctx.newString(JSON.stringify({ data: data ?? null }))

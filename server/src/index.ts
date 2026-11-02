@@ -7,6 +7,7 @@ import { HOUSE_USER, rebuildBooks, settleMarket, sweepMirrorOrders } from './eng
 import { startHouse } from './house.ts'
 import { leagueAdmin, publicUser } from './leagues.ts'
 import { handleMcp } from './mcp.ts'
+import { getPerpAsset, listPerpAssets, perpsApi, setTestPrice, startPerps } from './perps.ts'
 import { catalog, marketById, pmHistory, refreshMarkets, syncCatalog } from './polymarket.ts'
 import { createScript, deleteScript, listScripts, scriptLogsFor, updateScript } from './script-api.ts'
 import { EXAMPLE_SCRIPT, runScript, startScheduler } from './scripts.ts'
@@ -260,6 +261,36 @@ app.post('/api/backtest', wrap((req) => {
 }))
 app.get('/api/quant/scanner', wrap(() => scanner()))
 
+/* ---------------- perps ---------------- */
+
+app.get('/api/perps/assets', wrap((req) => listPerpAssets({
+  category: req.query.category ? String(req.query.category) : undefined,
+  q: req.query.q ? String(req.query.q) : undefined,
+  sort: req.query.sort ? String(req.query.sort) : undefined,
+  limit: req.query.limit ? Number(req.query.limit) : undefined,
+})))
+app.get('/api/perps/assets/:symbol', wrap((req) => getPerpAsset(String(req.params.symbol), String(req.query.range ?? '1d'))))
+app.get('/api/leagues/:id/perps', wrap((req) => {
+  const status = String(req.query.status ?? 'open')
+  return perpsApi(requireAuth(req).user.id, 'web').list(lid(req), status === 'all' || status === 'closed' ? status : 'open')
+}))
+app.post('/api/leagues/:id/perps', wrap((req) => {
+  const { user, source } = requireAuth(req)
+  return perpsApi(user.id, source).open({ ...req.body, leagueId: lid(req) })
+}))
+app.post('/api/leagues/:id/perps/:posId/close', wrap((req) => {
+  const { user, source } = requireAuth(req)
+  return perpsApi(user.id, source).close(String(req.params.posId))
+}))
+app.patch('/api/leagues/:id/perps/:posId', wrap((req) => {
+  const { user, source } = requireAuth(req)
+  return perpsApi(user.id, source).update(String(req.params.posId), req.body ?? {})
+}))
+if (process.env.PERPS_TEST === '1') {
+  // lets test/perps.mjs pin a mark price to drive liquidations and TP/SL; never enabled in production
+  app.post('/api/perps/test/price', wrap((req) => setTestPrice(String(req.body?.symbol ?? ''), req.body?.price ?? null)))
+}
+
 /* ---------------- markets (public, optionally league-scoped) ---------------- */
 
 const optionalLeague = (req: Request) => {
@@ -420,6 +451,7 @@ async function main() {
   every(8_000, sweepMirrorOrders)
   startHouse()
   startScheduler()
+  startPerps()
 }
 
 for (const sig of ['SIGTERM', 'SIGINT'] as const) {

@@ -103,7 +103,46 @@ Order bodies:
 The response is `{order, fills: [{price, size}], avgPrice, cash}`. Buy orders reserve `price × size` of cash and sell orders reserve shares, so you can't over-commit.
 
 ### Live stream
-`GET /api/stream?league=<id>&token=<token>` is Server-Sent Events. Message types: `trade, book, orders, activity, resolve, league`, each with `marketId` where relevant. Refetch what you need when a message arrives.
+`GET /api/stream?league=<id>&token=<token>` is Server-Sent Events. Message types: `trade, book, orders, portfolio, activity, resolve, league`, each with `marketId` where relevant. Refetch what you need when a message arrives.
+
+## Perps
+
+Leveraged perpetual futures on stocks, crypto, indices, commodities and pre-IPO names, paid for with league cash.
+
+Prices are mirrored live from Polymarket's perps venue, using its public, keyless info API (`https://api.perpetuals.polymarket.com/v1/info/{instruments,tickers,statistics,klines,fees}`). We use:
+- its instrument list and max leverage;
+- the mark price, polled every 5 seconds;
+- the hourly funding rate;
+- its taker fees (0.04% on stocks and crypto at the time of writing);
+- hourly 24h klines for the sparklines.
+
+What's simulated here:
+- Orders are market orders that fill in full at the mark price. There's no order book and no slippage.
+- Margin is isolated. Opening takes `margin = amount / leverage` plus the taker fee out of league cash.
+- Funding accrues continuously at the venue's hourly rate on the current notional. Longs pay when the rate is positive.
+- Maintenance margin is `1 / (2 × maxLeverage)` of the current notional.
+- A position is liquidated when `margin + unrealized P&L − funding ≤ maintenance margin`. This is checked on every price poll, and a liquidation loses the position's margin and nothing more.
+- Take-profit and stop-loss trigger on the same poll and close at the mark price.
+- Closing returns `margin + P&L − funding − fee` to cash.
+
+`get_portfolio` and the leaderboard count open perps at their equity (`margin + uPnL − funding`). Closed perps count through cash.
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/api/perps/assets` | `?category=stocks\|crypto\|indices\|commodities\|pre-ipo&q=&sort=volume\|gainers\|losers\|name&limit=`. Each asset has `{symbol, name, category, icon, maxLeverage, price, change24h, changeUsd24h, volume24h, openInterest, fundingRate, feeRate, maintenanceRate, spark[]}` |
+| GET | `/api/perps/assets/:symbol` | the same plus `history: [{t (unix s), p}]`, `?range=1h\|6h\|1d\|1w\|1m` |
+| GET | `/api/leagues/:id/perps` | your positions, `?status=open\|closed\|all` → `{equity, realized, positions[]}` |
+| POST | `/api/leagues/:id/perps` | open a position (body below) → `{position, cash}` |
+| POST | `/api/leagues/:id/perps/:posId/close` | close at the mark price → `{position, payout, cash}` |
+| PATCH | `/api/leagues/:id/perps/:posId` | `{takeProfit, stopLoss}`; pass `null` to clear |
+
+```json
+{ "symbol": "BTC", "side": "long", "amount": 1000, "leverage": 10, "takeProfit": 90000, "stopLoss": 74000 }
+```
+
+`amount` is the position size in dollars of notional. You can send `margin` (collateral in dollars) instead. `leverage` runs from 1 to the asset's `maxLeverage`.
+
+A position has these fields: `{id, symbol, side, leverage, qty, notional, margin, entryPrice, markPrice, liquidationPrice, takeProfit, stopLoss, funding, fees, unrealizedPnl, pnl, pnlPct, equity, status: open|closed|liquidated, closeReason: manual|tp|sl|liquidation, exitPrice}`.
 
 ## Quant
 
@@ -140,7 +179,7 @@ claude mcp add --transport http polymates https://YOUR-API/mcp --header "Authori
 { "mcpServers": { "polymates": { "url": "https://YOUR-API/mcp", "headers": { "Authorization": "Bearer pm_..." } } } }
 ```
 
-Tools: `whoami, list_leagues, create_league, join_league, get_league, update_league, set_event_enabled, set_market_enabled, set_member_role, remove_member, transfer_ownership, leave_league, reset_season, delete_league, search_markets, get_price_history, scan_markets, list_strategy_templates, run_backtest, get_event, get_market, get_order_book, get_portfolio, place_order, cancel_order, cancel_all_orders, list_orders, list_trades, get_leaderboard, list_scripts, upload_script, run_script, get_script_logs, set_script_enabled, delete_script`. Omit `league_id` to use your first league.
+Tools: `whoami, list_leagues, create_league, join_league, get_league, update_league, set_event_enabled, set_market_enabled, set_member_role, remove_member, transfer_ownership, leave_league, reset_season, delete_league, search_markets, get_price_history, scan_markets, list_strategy_templates, run_backtest, get_event, get_market, get_order_book, get_portfolio, place_order, cancel_order, cancel_all_orders, list_orders, list_trades, get_leaderboard, list_scripts, upload_script, run_script, get_script_logs, set_script_enabled, delete_script, list_perp_assets, get_perp_asset, open_perp, close_perp, list_perp_positions`. Omit `league_id` to use your first league.
 
 ## Hosted scripts
 
@@ -173,6 +212,12 @@ function onTick(pm) {
 ```
 
 `pm` API: `markets({q, tag, limit})`, `event(slug)`, `market(id)`, `book(id)`, `history(id, n)`, `portfolio()`, `orders()`, `leaderboard()`, `order({...})`, `buy(id, outcome, price, size)`, `sell(...)`, `marketBuy(id, outcome, dollars)`, `marketSell(id, outcome, shares)`, `cancel(orderId)`, `cancelAll(marketId?)`, `log(...)`, plus `store` (JSON persisted between runs, up to 64KB), `now`, `mode`, `leagueId`.
+
+Perps from a script:
+- `pm.perps.assets({category, q, sort, limit})` and `pm.perps.asset(symbol, range)`;
+- `pm.perps.long(symbol, dollars, leverage, {takeProfit, stopLoss})` and `pm.perps.short(...)`;
+- `pm.perps.open({symbol, side, amount, leverage, takeProfit, stopLoss})`;
+- `pm.perps.close(positionId)` and `pm.perps.positions(status)`.
 
 Sandbox limits:
 - Scripts run in QuickJS compiled to WebAssembly, with no network, filesystem, timers or Node APIs.

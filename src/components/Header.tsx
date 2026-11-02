@@ -159,7 +159,12 @@ export function Header() {
       <nav className="tabs-bar">
         <div className="wrap tabs-scroll">
           {CATEGORIES.map((c) =>
-            c.slug === '|' ? <span key="sep" className="tab-sep" /> : (
+            c.slug === '|' ? <span key="sep" className="tab-sep" /> : c.slug === 'breaking' ? (
+              <span key="perps" style={{ display: 'contents' }}>
+                <Link to="/perps" className={`tab ${path.startsWith('/perps') ? 'active' : ''}`}><Icon name="activity" size={16} />Perps</Link>
+                <Link to={`/?tag=${c.slug}`} className={`tab ${tag === c.slug ? 'active' : ''}`}>{c.label}</Link>
+              </span>
+            ) : (
               <Link key={c.slug} to={c.slug === 'trending' ? '/' : `/?tag=${c.slug}`} className={`tab ${tag === c.slug ? 'active' : ''}`}>
                 {c.icon && <Icon name={c.icon} size={16} />}
                 {c.label}
@@ -181,7 +186,7 @@ export function MobileNav() {
     { to: '/search', label: 'Search', icon: 'search', match: (p) => p === '/search' },
     { to: '/leaderboard', label: 'Ranks', icon: 'trophy', match: (p) => p === '/leaderboard' },
     { to: '/portfolio', label: 'Portfolio', icon: 'wallet', match: (p) => p === '/portfolio' },
-    { to: '/more', label: 'More', icon: 'menu', match: (p) => ['/more', '/league', '/developers', '/activity', '/lab'].includes(p) },
+    { to: '/more', label: 'More', icon: 'menu', match: (p) => ['/more', '/league', '/developers', '/activity', '/lab'].includes(p) || p.startsWith('/perps') },
   ]
   return (
     <nav className="mobile-nav">

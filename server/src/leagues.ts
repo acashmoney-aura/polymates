@@ -1,4 +1,5 @@
 import { HOUSE_USER, logActivity, rebuildBooks } from './engine.ts'
+import { clearPerps } from './perps.ts'
 import { eventById, marketById } from './polymarket.ts'
 import { db, markDirty, memberKey } from './state.ts'
 import type { League, Member, User } from './types.ts'
@@ -208,6 +209,7 @@ export function leagueAdmin(userId: string) {
       cancelOrdersIn(league.id, m.userId)
       db.members.delete(memberKey(league.id, m.userId))
       for (const [k, p] of db.positions) if (p.leagueId === league.id && p.userId === m.userId) db.positions.delete(k)
+      clearPerps(league.id, m.userId)
       for (const s of db.scripts.values()) if (s.leagueId === league.id && s.userId === m.userId) s.enabled = false
       const name = db.users.get(m.userId)?.displayName
       logActivity(league.id, userId, 'admin', `${user().displayName} removed ${name}`)
@@ -237,6 +239,7 @@ export function leagueAdmin(userId: string) {
       cancelOrdersIn(league.id, userId)
       db.members.delete(memberKey(league.id, userId))
       for (const [k, p] of db.positions) if (p.leagueId === league.id && p.userId === userId) db.positions.delete(k)
+      clearPerps(league.id, userId)
       for (const s of db.scripts.values()) if (s.leagueId === league.id && s.userId === userId) s.enabled = false
       logActivity(league.id, userId, 'admin', `${user().displayName} left the league`)
       changed(league)
@@ -249,6 +252,7 @@ export function leagueAdmin(userId: string) {
       if (confirmName.trim() !== league.name) fail(400, `Type the league name exactly ("${league.name}") to confirm`)
       cancelOrdersIn(league.id)
       for (const [k, p] of db.positions) if (p.leagueId === league.id) db.positions.delete(k)
+      clearPerps(league.id)
       for (const [k, s] of db.settlements) if (s.leagueId === league.id) db.settlements.delete(k)
       db.trades = db.trades.filter((t) => t.leagueId !== league.id)
       for (const m of db.members.values()) if (m.leagueId === league.id && m.userId !== HOUSE_USER) m.cash = league.startingBalance
@@ -271,6 +275,7 @@ function deleteLeague(league: League) {
   const lid = league.id
   for (const [k, m] of db.members) if (m.leagueId === lid) db.members.delete(k)
   for (const [k, p] of db.positions) if (p.leagueId === lid) db.positions.delete(k)
+  clearPerps(lid)
   for (const [k, o] of db.orders) if (o.leagueId === lid) db.orders.delete(k)
   for (const [k, s] of db.settlements) if (s.leagueId === lid) db.settlements.delete(k)
   for (const [k, s] of db.scripts) if (s.leagueId === lid) db.scripts.delete(k)

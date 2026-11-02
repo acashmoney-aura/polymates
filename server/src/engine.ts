@@ -1,3 +1,4 @@
+import { perpSummary } from './perps.ts'
 import { catalog, displayPrice, marketById, pmBook } from './polymarket.ts'
 import { db, markDirty, memberKey, positionKey, settlementKey } from './state.ts'
 import type { Activity, Book, League, Order, OrderSource, OrderType, Outcome, PMMarket, Position, Side, Trade } from './types.ts'
@@ -508,15 +509,18 @@ export function portfolio(leagueId: string, userId: string) {
     }
   }
   positions.sort((a, b) => b.value - a.value)
-  const value = money(member.cash + positionsValue)
+  const perps = perpSummary(leagueId, userId)
+  const value = money(member.cash + positionsValue + perps.equity)
   return {
     cash: member.cash,
     availableCash: availableCash(leagueId, userId),
     positionsValue: money(positionsValue),
+    perpsValue: perps.equity,
     value,
     pnl: money(value - league.startingBalance),
-    realized: money(realized),
+    realized: money(realized + perps.realized),
     positions,
+    perps: perps.positions,
   }
 }
 
@@ -540,7 +544,7 @@ export function leaderboard(leagueId: string) {
       pnl: pf.pnl,
       pnlPct: league.startingBalance ? pf.pnl / league.startingBalance : 0,
       volume: money(vol),
-      positions: pf.positions.length,
+      positions: pf.positions.length + pf.perps.length,
       bots: [...db.scripts.values()].filter((s) => s.userId === m.userId && s.leagueId === leagueId && s.enabled).length,
     })
   }

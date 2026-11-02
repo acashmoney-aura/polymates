@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   api, cents, qs, shares, signedUsd, timeAgo, usd, type ActivityRow, type LeaderRow, type OrderRow, type TradeRow,
 } from '../api'
+import { PerpPositions } from '../components/PerpTrade'
 import { Avatar, Empty, Img, ModeBadge, Spinner } from '../components/ui'
 import { Icon } from '../icons'
 import { Link, useTitle } from '../router'
@@ -26,7 +27,7 @@ export function NeedLeague({ what }: { what: string }) {
 
 export function Portfolio() {
   const { user, portfolio, leagueId, league, toast } = useApp()
-  const [tab, setTab] = useState<'positions' | 'orders' | 'history'>('positions')
+  const [tab, setTab] = useState<'positions' | 'perps' | 'orders' | 'history'>('positions')
   const [orders, setOrders] = useState<OrderRow[] | null>(null)
   const [trades, setTrades] = useState<TradeRow[] | null>(null)
   const [search, setSearch] = useState('')
@@ -61,9 +62,10 @@ export function Portfolio() {
           <div className="pf-stats">
             <div><b>{usd(portfolio.value)}</b><span>Portfolio</span></div>
             <div><b>{usd(portfolio.cash)}</b><span>Cash</span></div>
-            <div><b>{portfolio.positions.length}</b><span>Positions</span></div>
+            <div><b>{portfolio.positions.length + (portfolio.perps?.length ?? 0)}</b><span>Positions</span></div>
           </div>
           <div className="kv"><span>Positions value</span><b>{usd(portfolio.positionsValue)}</b></div>
+          {(portfolio.perps?.length ?? 0) > 0 && <div className="kv"><span>Perps equity</span><b>{usd(portfolio.perpsValue ?? 0)}</b></div>}
           <div className="kv"><span>Available to trade</span><b>{usd(portfolio.availableCash)}</b></div>
         </div>
         <div className="card pf-card">
@@ -78,6 +80,7 @@ export function Portfolio() {
 
       <div className="text-tabs big">
         <button className={tab === 'positions' ? 'active' : ''} onClick={() => setTab('positions')}>Positions</button>
+        <button className={tab === 'perps' ? 'active' : ''} onClick={() => setTab('perps')}>Perps {portfolio.perps?.length ? `(${portfolio.perps.length})` : ''}</button>
         <button className={tab === 'orders' ? 'active' : ''} onClick={() => setTab('orders')}>Open orders {orders?.length ? `(${orders.length})` : ''}</button>
         <button className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}>History</button>
       </div>
@@ -107,6 +110,11 @@ export function Portfolio() {
             </div>
           )}
         </>
+      )}
+      {tab === 'perps' && (
+        !portfolio.perps?.length
+          ? <Empty title="No open perps">Go long or short on stocks, crypto and more in <Link to="/perps">Perps</Link>.</Empty>
+          : <div className="pf-perps"><PerpPositions positions={portfolio.perps} /></div>
       )}
       {tab === 'orders' && (
         !orders ? <Spinner /> : !orders.length ? <Empty title="No open orders" /> : (

@@ -35,7 +35,10 @@ export interface PositionRow {
   outcome: Outcome; outcomeLabel: string; size: number; avgPrice: number; curPrice: number; cost: number; value: number
   pnl: number; pnlPct: number; resolved: boolean; endDate: string | null
 }
-export interface Portfolio { cash: number; availableCash: number; positionsValue: number; value: number; pnl: number; realized: number; positions: PositionRow[] }
+export interface Portfolio {
+  cash: number; availableCash: number; positionsValue: number; value: number; pnl: number; realized: number; positions: PositionRow[]
+  perpsValue?: number; perps?: import('./perps').PerpPosition[]
+}
 export interface OrderRow {
   id: string; marketId: string; side: Side; outcome: Outcome; type: 'limit' | 'market'; price: number; size: number
   filled: number; notional: number; remaining: number; status: 'open' | 'filled' | 'cancelled'; source: string

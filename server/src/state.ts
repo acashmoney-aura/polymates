@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import type {
-  Activity, ApiKey, League, Member, Order, Position, Script, ScriptLog, Session, Settlement, Trade, User,
+  Activity, ApiKey, League, Member, Order, PerpPosition, Position, Script, ScriptLog, Session, Settlement, Trade, User,
 } from './types.ts'
 
 /**
@@ -22,6 +22,7 @@ export const db = {
   scripts: new Map<string, Script>(),
   settlements: new Map<string, Settlement>(),
   activity: [] as Activity[],
+  perps: new Map<string, PerpPosition>(),
 }
 
 export const scriptLogs = new Map<string, ScriptLog[]>()
@@ -47,6 +48,7 @@ interface Snapshot {
   scripts: Script[]
   settlements: Settlement[]
   activity: Activity[]
+  perps?: PerpPosition[]
 }
 
 function toSnapshot(): Snapshot {
@@ -73,6 +75,7 @@ function toSnapshot(): Snapshot {
     scripts: [...db.scripts.values()],
     settlements: [...db.settlements.values()],
     activity: db.activity,
+    perps: [...db.perps.values()],
   }
 }
 
@@ -91,6 +94,7 @@ function fromSnapshot(s: Snapshot) {
   for (const sc of s.scripts) db.scripts.set(sc.id, sc)
   for (const st of s.settlements ?? []) db.settlements.set(settlementKey(st.leagueId, st.marketId), st)
   db.activity = s.activity ?? []
+  for (const p of s.perps ?? []) db.perps.set(p.id, p)
 }
 
 interface Store {

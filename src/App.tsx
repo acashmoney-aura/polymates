@@ -6,6 +6,7 @@ import { GoogleButton } from './components/GoogleButton'
 import { Icon, Logo } from './icons'
 import { Developers } from './pages/Developers'
 import { Lab } from './pages/Lab'
+import { PerpAssetPage, PerpsPage } from './pages/Perps'
 import { EventPage, SheetHost } from './pages/Event'
 import { Home, SearchPage } from './pages/Home'
 import { JoinPage, LeaguePage } from './pages/League'
@@ -79,6 +80,7 @@ function MorePage() {
     { to: '/league', label: league ? `League: ${league.name}` : 'Leagues', icon: 'users' as const },
     { to: '/activity', label: 'League activity', icon: 'activity' as const },
     { to: '/lab', label: 'Quant Lab', icon: 'zap' as const },
+    { to: '/perps', label: 'Perps', icon: 'trending' as const },
     { to: '/developers', label: 'Agents & API', icon: 'bot' as const },
     { to: '/?tag=league', label: 'League markets', icon: 'swap' as const },
   ]
@@ -123,6 +125,7 @@ function Routes() {
   const { path } = useLocation()
   if (path.startsWith('/event/')) return <EventPage key={path} slug={decodeURIComponent(path.slice(7))} />
   if (path.startsWith('/join/')) return <JoinPage code={path.slice(6)} />
+  if (path.startsWith('/perps/')) return <PerpAssetPage key={path} symbol={decodeURIComponent(path.slice(7))} />
   switch (path) {
     case '/portfolio': return <Portfolio />
     case '/leaderboard': return <Leaderboard />
@@ -132,6 +135,7 @@ function Routes() {
     case '/search': return <SearchPage />
     case '/more': return <MorePage />
     case '/lab': return <Lab />
+    case '/perps': return <PerpsPage />
     default: return <Home />
   }
 }

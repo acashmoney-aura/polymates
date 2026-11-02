@@ -216,3 +216,39 @@ export interface Book {
   bids: BookLevel[]
   asks: BookLevel[]
 }
+
+/* ---------------- perps ---------------- */
+
+export type PerpSide = 'long' | 'short'
+
+/** An isolated-margin perpetual futures position in a league (see perps.ts). */
+export interface PerpPosition {
+  id: string
+  leagueId: string
+  userId: string
+  symbol: string
+  side: PerpSide
+  leverage: number
+  /** units of the underlying */
+  qty: number
+  entryPrice: number
+  /** collateral locked from league cash */
+  margin: number
+  liqPrice: number
+  takeProfit?: number
+  stopLoss?: number
+  /** cumulative funding paid (negative = received) */
+  funding: number
+  /** opening + closing taker fees */
+  fees: number
+  openFee: number
+  status: 'open' | 'closed' | 'liquidated'
+  closeReason?: 'manual' | 'tp' | 'sl' | 'liquidation'
+  exitPrice?: number
+  /** net P&L after funding and fees, set on close */
+  realized?: number
+  source: OrderSource
+  openedAt: number
+  closedAt?: number
+  lastFundingAt: number
+}

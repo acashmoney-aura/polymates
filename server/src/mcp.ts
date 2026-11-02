@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { agentApi } from './agent-api.ts'
 import { leagueAdmin } from './leagues.ts'
 import { runBacktest, scanner, STRATEGY_TEMPLATES } from './backtest.ts'
+import { getPerpAsset, listPerpAssets, PERP_CATEGORIES, perpsApi } from './perps.ts'
 import { createScript, deleteScript, listScripts, scriptLogsFor, updateScript } from './script-api.ts'
 import { runScript } from './scripts.ts'
 import { db } from './state.ts'
@@ -16,7 +17,8 @@ Prices are probabilities in dollars per share (0.42 = 42¢); a winning share pay
 Typical flow: list_leagues -> search_markets -> get_order_book -> place_order -> get_portfolio.
 Omit league_id to use your first league.
 League management: create_league, join_league, get_league, update_league, set_event_enabled / set_market_enabled, set_member_role, remove_member, transfer_ownership, leave_league, reset_season, delete_league.
-The owner can do everything; admins can change settings, switch markets and remove members. reset_season and delete_league need confirm = the exact league name; always ask the user before calling them.`
+The owner can do everything; admins can change settings, switch markets and remove members. reset_season and delete_league need confirm = the exact league name; always ask the user before calling them.
+Perps: leveraged perpetual futures on stocks, crypto, indices and commodities, priced live from Polymarket's perps venue and paid for with league cash (isolated margin, market orders at the mark price). Flow: list_perp_assets -> get_perp_asset -> open_perp -> list_perp_positions -> close_perp.`
 
 const text = (data: unknown) => ({ content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] })
 const leagueId = z.string().optional().describe('League id (default: your first league)')
@@ -160,12 +162,42 @@ function build(userId: string) {
     },
   )
 
+  /* ---- perps ---- */
+  const perp = perpsApi(userId, 'mcp')
+  tool('list_perp_assets', 'Perpetual futures you can trade: symbol, name, category, live mark price, 24h change, max leverage, hourly funding rate, taker fee.', {
+    category: z.enum(['all', ...PERP_CATEGORIES]).optional(),
+    query: z.string().optional().describe('Match symbol or name, e.g. "btc" or "nvidia"'),
+    sort: z.enum(['volume', 'gainers', 'losers', 'name']).optional(),
+    limit: z.number().int().min(1).max(200).optional(),
+  }, async (a) => (await listPerpAssets({ category: a.category, q: a.query, sort: a.sort, limit: a.limit ?? 50 })).map((x) => ({ ...x, spark: undefined })))
+  tool('get_perp_asset', 'One perp asset with its price history [{t (unix s), p}].', {
+    symbol: z.string().describe('Ticker like BTC, NVDA, USA500, GOLD'),
+    range: z.enum(['1h', '6h', '1d', '1w', '1m']).default('1d'),
+  }, (a) => getPerpAsset(a.symbol, a.range))
+  tool('open_perp', 'Open a leveraged perp position with a market order at the mark price. Margin (amount / leverage) plus a taker fee comes out of league cash. ' +
+    'You are liquidated (and lose the margin) if equity falls to maintenance margin; check liquidationPrice in the result.', {
+    symbol: z.string(),
+    side: z.enum(['long', 'short']),
+    amount: z.number().positive().optional().describe('Position size in dollars of notional'),
+    margin: z.number().positive().optional().describe('Or: collateral in dollars (notional = margin × leverage)'),
+    leverage: z.number().min(1).max(50).default(1),
+    take_profit: z.number().positive().optional().describe('Close automatically when the mark reaches this price'),
+    stop_loss: z.number().positive().optional().describe('Close automatically when the mark reaches this price'),
+    league_id: leagueId,
+  }, (a) => perp.open({ leagueId: a.league_id, symbol: a.symbol, side: a.side, amount: a.amount, margin: a.margin, leverage: a.leverage, takeProfit: a.take_profit, stopLoss: a.stop_loss }))
+  tool('close_perp', 'Close an open perp position at the mark price. Returns margin + P&L - funding - fee to cash.', { position_id: z.string() },
+    (a) => perp.close(a.position_id))
+  tool('list_perp_positions', 'Your perp positions in a league with entry, mark, liquidation price, unrealized P&L and funding.', {
+    status: z.enum(['open', 'closed', 'all']).default('open'), league_id: leagueId,
+  }, (a) => perp.list(a.league_id, a.status))
+
   tool('list_scripts', 'Your hosted trading scripts.', { league_id: leagueId }, (a) => listScripts(userId, a.league_id ?? api.listLeagues()[0]?.id))
   tool(
     'upload_script',
     'Create or update a JavaScript bot that runs on the Polymates server every interval_sec seconds. Define function onTick(pm) { ... }. ' +
       'pm API: markets({q,tag,limit}), event(slug), market(id), book(id), portfolio(), orders(), leaderboard(), buy(id, outcome, price, size), sell(...), ' +
-      'marketBuy(id, outcome, dollars), marketSell(id, outcome, shares), cancel(orderId), cancelAll(marketId?), log(...), store (persisted object).',
+      'marketBuy(id, outcome, dollars), marketSell(id, outcome, shares), cancel(orderId), cancelAll(marketId?), log(...), store (persisted object). ' +
+      'Perps: pm.perps.assets(opts), asset(symbol), long(symbol, amount, leverage), short(...), open({symbol, side, amount, leverage, takeProfit, stopLoss}), close(positionId), positions().',
     {
       name: z.string().min(1).max(60),
       code: z.string().min(1).max(100_000),
