@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { api, type User } from './api'
 import { Header, MobileNav } from './components/Header'
-import { Modal } from './components/ui'
+import { Modal, Spinner } from './components/ui'
 import { GoogleButton } from './components/GoogleButton'
 import { Icon, Logo } from './icons'
 import { Developers } from './pages/Developers'
@@ -12,6 +12,10 @@ import { JoinPage, LeaguePage } from './pages/League'
 import { ActivityPage, Leaderboard, Portfolio } from './pages/Portfolio'
 import { Link, useLocation, useTitle } from './router'
 import { AppProvider, useApp } from './store'
+
+// map path data is ~150KB, so the elections pages load on demand
+const ElectionsPage = lazy(() => import('./pages/Elections').then((m) => ({ default: m.ElectionsPage })))
+const MidtermsPage = lazy(() => import('./pages/Elections').then((m) => ({ default: m.MidtermsPage })))
 
 function AuthModal() {
   const { authModal, openAuth, login } = useApp()
@@ -79,6 +83,7 @@ function MorePage() {
     { to: '/league', label: league ? `League: ${league.name}` : 'Leagues', icon: 'users' as const },
     { to: '/activity', label: 'League activity', icon: 'activity' as const },
     { to: '/lab', label: 'Quant Lab', icon: 'zap' as const },
+    { to: '/elections', label: 'Elections', icon: 'globe' as const },
     { to: '/developers', label: 'Agents & API', icon: 'bot' as const },
     { to: '/?tag=league', label: 'League markets', icon: 'swap' as const },
   ]
@@ -132,6 +137,9 @@ function Routes() {
     case '/search': return <SearchPage />
     case '/more': return <MorePage />
     case '/lab': return <Lab />
+    case '/elections': return <Suspense fallback={<div className="wrap page center"><Spinner /></div>}><ElectionsPage /></Suspense>
+    case '/midterms':
+    case '/elections/midterms': return <Suspense fallback={<div className="wrap page center"><Spinner /></div>}><MidtermsPage /></Suspense>
     default: return <Home />
   }
 }

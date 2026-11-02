@@ -82,7 +82,7 @@ function parseMarket(m: any, eventId: string): PMMarket | null {
   }
 }
 
-function ingestEvent(e: any, rank: number): PMEvent | null {
+export function ingestEvent(e: any, rank: number): PMEvent | null {
   const markets = (Array.isArray(e.markets) ? e.markets : [])
     .map((m: any) => parseMarket(m, String(e.id)))
     .filter(Boolean) as PMMarket[]
