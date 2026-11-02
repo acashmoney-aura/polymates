@@ -29,7 +29,7 @@ docs/polymarket-ui-spec.md   reverse-engineered UI spec the frontend follows
 ## Run locally
 
 ```bash
-cd server && npm install && npm run dev        # API on :8080 (PORT=8787 to match the frontend default)
+cd server && npm install && npm run dev        # API on :8787
 ```
 
 ```bash

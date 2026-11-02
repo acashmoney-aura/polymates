@@ -443,7 +443,7 @@ function every(ms: number, fn: () => Promise<unknown>) {
 async function main() {
   await initState()
   rebuildBooks()
-  const port = Number(process.env.PORT ?? 8080)
+  const port = Number(process.env.PORT ?? 8787)
   app.listen(port, () => console.log(`[polymates] listening on :${port}`))
   await syncCatalog()
   await resolveMarkets().catch((err) => console.error('[resolve]', err))
