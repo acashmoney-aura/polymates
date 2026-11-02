@@ -109,7 +109,7 @@ export function Header() {
   const { path, query } = useLocation()
   const [q, setQ] = useState(query.get('q') ?? '')
   const inputRef = useRef<HTMLInputElement>(null)
-  const tag = path === '/' ? (query.get('tag') ?? 'trending') : ''
+  const tag = path === '/' ? (query.get('tag') ?? 'trending') : path.startsWith('/elections') || path === '/midterms' ? 'elections' : ''
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -165,7 +165,7 @@ export function Header() {
                 <Link to={`/?tag=${c.slug}`} className={`tab ${tag === c.slug ? 'active' : ''}`}>{c.label}</Link>
               </span>
             ) : (
-              <Link key={c.slug} to={c.slug === 'trending' ? '/' : `/?tag=${c.slug}`} className={`tab ${tag === c.slug ? 'active' : ''}`}>
+              <Link key={c.slug} to={c.slug === 'trending' ? '/' : c.slug === 'elections' ? '/elections' : `/?tag=${c.slug}`} className={`tab ${tag === c.slug ? 'active' : ''}`}>
                 {c.icon && <Icon name={c.icon} size={16} />}
                 {c.label}
               </Link>
@@ -186,7 +186,7 @@ export function MobileNav() {
     { to: '/search', label: 'Search', icon: 'search', match: (p) => p === '/search' },
     { to: '/leaderboard', label: 'Ranks', icon: 'trophy', match: (p) => p === '/leaderboard' },
     { to: '/portfolio', label: 'Portfolio', icon: 'wallet', match: (p) => p === '/portfolio' },
-    { to: '/more', label: 'More', icon: 'menu', match: (p) => ['/more', '/league', '/developers', '/activity', '/lab'].includes(p) || p.startsWith('/perps') },
+    { to: '/more', label: 'More', icon: 'menu', match: (p) => ['/more', '/league', '/developers', '/activity', '/lab', '/elections', '/elections/midterms'].includes(p) || p.startsWith('/perps') },
   ]
   return (
     <nav className="mobile-nav">

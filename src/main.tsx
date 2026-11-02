@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import './motion.css'
 import './perps.css'
+import './elections.css'
 import App from './App.tsx'
 
 createRoot(document.getElementById('root')!).render(

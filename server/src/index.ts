@@ -8,6 +8,7 @@ import { startHouse } from './house.ts'
 import { leagueAdmin, publicUser } from './leagues.ts'
 import { handleMcp } from './mcp.ts'
 import { getPerpAsset, listPerpAssets, perpsApi, setTestPrice, startPerps } from './perps.ts'
+import { electionsOverview } from './elections.ts'
 import { catalog, marketById, pmHistory, refreshMarkets, syncCatalog } from './polymarket.ts'
 import { createScript, deleteScript, listScripts, scriptLogsFor, updateScript } from './script-api.ts'
 import { EXAMPLE_SCRIPT, runScript, startScheduler } from './scripts.ts'
@@ -312,6 +313,7 @@ app.get('/api/events', wrap((req) => {
     includeDisabled: req.query.all === '1',
   })
 }))
+app.get('/api/elections', wrap(() => electionsOverview()))
 app.get('/api/events/:slug', wrap((req) => {
   const { leagueId, api } = optionalLeague(req)
   return api.getEvent(String(req.params.slug), leagueId)
