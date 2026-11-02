@@ -33,6 +33,10 @@ jobs:
 
       - name: Build
         run: npm run build
+        env:
+          # Cloud Run URL of the API (server/deploy.sh prints it). Set with:
+          # gh variable set POLYMATES_API_URL --body https://...run.app
+          VITE_API_URL: ${{ vars.POLYMATES_API_URL }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4
