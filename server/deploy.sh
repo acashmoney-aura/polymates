@@ -3,7 +3,8 @@
 #
 # One instance holds the order books in memory and snapshots state to GCS, so the
 # service is pinned to exactly one instance with CPU always on (scripts and the
-# house market maker run on timers). Roughly $40-50/month at 1 vCPU / 1 GiB.
+# house market maker run on timers). Roughly $45-55/month at 1 vCPU / 2 GiB. A load test with 40 traders
+# and 85 bots peaked near 800 MB, so 1 GiB left too little headroom.
 set -euo pipefail
 
 PROJECT="${PROJECT:-$(gcloud config get-value project 2>/dev/null)}"
@@ -23,7 +24,7 @@ gcloud run deploy "$SERVICE" \
   --region "$REGION" \
   --allow-unauthenticated \
   --min-instances 1 --max-instances 1 \
-  --no-cpu-throttling --cpu 1 --memory 1Gi \
+  --no-cpu-throttling --cpu 1 --memory 2Gi \
   --timeout 3600 \
   --set-env-vars "STATE_BUCKET=${BUCKET}${GOOGLE_CLIENT_ID:+,GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}}" \
   --quiet
