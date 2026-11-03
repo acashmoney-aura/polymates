@@ -193,6 +193,30 @@ export interface PMMarket {
   payout: [number, number] | null
   description: string
   threshold: number
+  /** Polymarket's sports market kind (moneyline, spreads, totals, map_handicap, ...) */
+  sportsMarketType: string | null
+  /** spread / total line for sports markets */
+  line: number | null
+}
+
+export interface GameTeam {
+  name: string
+  abbr: string
+  logo: string
+  color: string
+}
+
+/** Live game metadata for sports/esports events. */
+export interface GameInfo {
+  teams: GameTeam[]
+  /** Polymarket score string, e.g. "13-13|1-1|Bo3" or "102-98" */
+  score: string | null
+  /** e.g. "3/3", "S1", "Q4", "NS" */
+  period: string | null
+  live: boolean
+  ended: boolean
+  startTime: string | null
+  league: string | null
 }
 
 export interface PMEvent {
@@ -215,6 +239,8 @@ export interface PMEvent {
   commentCount: number
   resolutionSource: string
   rank: number
+  game: GameInfo | null
+  fetchedAt: number
 }
 
 export interface BookLevel {

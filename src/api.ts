@@ -22,6 +22,7 @@ export interface Market {
   change24h: number | null; volume: number; volume24h: number; leagueVolume: number; endDate: string | null
   tick: number; active: boolean; resolved: boolean; payout: [number, number] | null; settled: boolean
   enabled: boolean; description: string
+  sportsMarketType?: string | null; line?: number | null
   /** live: price change and high-low range over the last hour */
   move1h?: number; range1h?: number
 }
@@ -29,7 +30,12 @@ export interface PMEvent {
   id: string; slug: string; title: string; description?: string; resolutionSource?: string; image: string; icon: string
   tags: { slug: string; label: string }[]; volume: number; volume24h: number; liquidity: number
   endDate: string | null; startDate: string | null; createdAt: string | null; negRisk: boolean; closed: boolean
-  commentCount: number; enabled: boolean; markets: Market[]
+  commentCount: number; enabled: boolean; markets: Market[]; game?: GameInfo | null
+}
+export interface GameTeam { name: string; abbr: string; logo: string; color: string }
+export interface GameInfo {
+  teams: GameTeam[]; score: string | null; period: string | null; live: boolean; ended: boolean
+  startTime: string | null; league: string | null
 }
 export interface Book { source: 'league' | 'polymarket'; bids: { price: number; size: number }[]; asks: { price: number; size: number }[]; last: number | null; tick: number }
 export interface PositionRow {

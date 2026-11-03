@@ -5,6 +5,7 @@ import {
 } from '../api'
 import { PriceChart, RANGES, SERIES_COLORS, useHistory, type Range } from '../components/Chart'
 import { EventCurve } from '../components/EventCurve'
+import { GameChart, GameHeader, GameLines, gameMoneyline, isGame } from '../components/Game'
 import { Microstructure } from '../components/Microstructure'
 import { OrderBook } from '../components/OrderBook'
 import { StatsForNerds } from '../components/StatsForNerds'
@@ -147,8 +148,10 @@ export function EventPage({ slug }: { slug: string }) {
     return [...open.sort((a, b) => b.price - a.price), ...closed]
   }, [event])
   const multi = (event?.markets.length ?? 0) > 1
-  const selected = markets.find((m) => m.id === marketId) ?? markets[0]
-  const chartMarkets = multi ? markets.filter((m) => m.active).slice(0, 4) : markets.slice(0, 1)
+  const game = event && isGame(event) ? event : null
+  const ml = event ? gameMoneyline(event) : null
+  const selected = markets.find((m) => m.id === marketId) ?? (game && ml) ?? markets[0]
+  const chartMarkets = game && ml ? [ml] : multi ? markets.filter((m) => m.active).slice(0, 4) : markets.slice(0, 1)
   const hist = useHistory(chartMarkets.map((m) => m.id), range)
   const isOwner = !!league && !!user && league.ownerId === user.id
 
@@ -169,8 +172,9 @@ export function EventPage({ slug }: { slug: string }) {
       reload()
     } catch (e) { toast((e as Error).message, 'error') }
   }
+  const gameTitle = game ? game.game.teams.map((t) => t.name).join(' vs ') : event.title
   const panel = (
-    <TradePanel market={selected} eventTitle={event.title} eventImage={event.icon} multi={multi} outcome={outcome}
+    <TradePanel market={selected} eventTitle={gameTitle} eventImage={event.icon} multi={multi && !(game && selected === ml)} outcome={outcome}
       onOutcome={setOutcome} presetPrice={preset} onDone={() => setSheet(false)} />
   )
 
@@ -183,7 +187,7 @@ export function EventPage({ slug }: { slug: string }) {
             <div className="crumbs">{event.tags.filter((t) => !['all', 'hide-from-new'].includes(t.slug)).slice(0, 3).map((t, i) => (
               <span key={t.slug}>{i > 0 && ' · '}<Link to={`/?tag=${t.slug}`}>{t.label}</Link></span>
             ))}</div>
-            <h1>{event.title}</h1>
+            <h1>{game ? game.game.teams.map((t) => t.name).join(' – ') : event.title}</h1>
           </div>
           <div className="ev-actions">
             {isOwner && (
@@ -198,6 +202,19 @@ export function EventPage({ slug }: { slug: string }) {
           </div>
         </div>
 
+        {game ? (
+          <>
+            <GameHeader event={game} ml={ml} />
+            {ml && <GameChart event={game} ml={ml} points={hist[ml.id] ?? []} />}
+            <div className="ev-meta">
+              <span className="grow" />
+              <div className="ranges">
+                {RANGES.map((r) => <button key={r} className={range === r ? 'active' : ''} onClick={() => setRange(r)}>{r}</button>)}
+              </div>
+            </div>
+            <GameLines event={game} selected={selected} outcome={outcome} onPick={pick} onPrice={(p) => setPreset({ price: p, n: Date.now() })} />
+          </>
+        ) : (<>
         {multi ? (
           <div className="legend">
             {chartMarkets.map((m, k) => <span key={m.id}><i style={{ background: SERIES_COLORS[k] }} />{m.title} <b>{pct(m.price)}</b></span>)}
@@ -263,7 +280,9 @@ export function EventPage({ slug }: { slug: string }) {
           </>
         )}
 
-        {multi && <EventCurve event={event} onPick={setMarketId} />}
+        </>)}
+
+        {multi && !game && <EventCurve event={event} onPick={setMarketId} />}
 
         {selected.active && <Microstructure market={selected} />}
 

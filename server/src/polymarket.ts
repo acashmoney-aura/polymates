@@ -1,4 +1,4 @@
-import type { Book, Outcome, PMEvent, PMMarket } from './types.ts'
+import type { Book, GameInfo, Outcome, PMEvent, PMMarket } from './types.ts'
 import { fetchJson } from './util.ts'
 
 const GAMMA = 'https://gamma-api.polymarket.com'
@@ -79,6 +79,27 @@ function parseMarket(m: any, eventId: string): PMMarket | null {
     payout: resolved && prices.length === 2 ? [prices[0], prices[1]] : null,
     description: String(m.description ?? ''),
     threshold: num(m.groupItemThreshold, 0),
+    sportsMarketType: m.sportsMarketType ? String(m.sportsMarketType) : null,
+    line: numOrNull(m.line),
+  }
+}
+
+function parseGame(e: any): GameInfo | null {
+  const teams = Array.isArray(e.teams) ? e.teams : []
+  if (teams.length !== 2) return null
+  return {
+    teams: teams.map((t: any) => ({
+      name: String(t.name ?? ''),
+      abbr: String(t.abbreviation ?? t.name ?? '').toUpperCase(),
+      logo: String(t.logo ?? ''),
+      color: String(t.color ?? ''),
+    })),
+    score: e.score ? String(e.score) : null,
+    period: e.period ? String(e.period) : null,
+    live: Boolean(e.live),
+    ended: Boolean(e.ended),
+    startTime: e.startTime ?? e.eventMetadata?.originalStart ?? null,
+    league: e.eventMetadata?.league ? String(e.eventMetadata.league) : null,
   }
 }
 
@@ -111,6 +132,8 @@ export function ingestEvent(e: any, rank: number): PMEvent | null {
     commentCount: num(e.commentCount),
     resolutionSource: String(e.resolutionSource ?? ''),
     rank: rank >= 0 ? rank : (prev?.rank ?? 1e9),
+    game: parseGame(e),
+    fetchedAt: Date.now(),
   }
   catalog.events.set(ev.id, ev)
   catalog.slugs.set(ev.slug, ev.id)
@@ -158,7 +181,18 @@ export function syncCatalog() {
 
 export async function eventBySlug(slug: string): Promise<PMEvent | null> {
   const known = catalog.slugs.get(slug)
-  if (known) return catalog.events.get(known) ?? null
+  const ev = known ? catalog.events.get(known) : undefined
+  // live games change score and lines by the minute, so refetch them more often than the catalog sync
+  const stale = ev?.game && !ev.game.ended && !ev.closed && Date.now() - ev.fetchedAt > 15_000
+  if (ev && !stale) return ev
+  if (ev) {
+    try {
+      const rows = await fetchJson<any[]>(`${GAMMA}/events?slug=${encodeURIComponent(slug)}`, 6000)
+      return (rows[0] && ingestEvent(rows[0], -1)) || ev
+    } catch {
+      return ev
+    }
+  }
   const rows = await fetchJson<any[]>(`${GAMMA}/events?slug=${encodeURIComponent(slug)}`)
   return rows[0] ? ingestEvent(rows[0], -1) : null
 }

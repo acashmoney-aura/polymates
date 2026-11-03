@@ -51,6 +51,8 @@ export function serializeMarket(m: PMMarket, league?: League) {
     settled: league ? db.settlements.has(settlementKey(league.id, m.id)) : false,
     enabled: league ? marketEnabled(league, m) : true,
     description: m.description,
+    sportsMarketType: m.sportsMarketType,
+    line: m.line,
     ...liveStats(m.id),
   }
 }
@@ -77,6 +79,7 @@ export function serializeEvent(e: PMEvent, league?: League, opts: { full?: boole
     closed: e.closed,
     commentCount: e.commentCount,
     enabled: league ? eventEnabled(league, e.id) : true,
+    game: e.game ?? null,
     markets: visible.map((m) => serializeMarket(m, league)),
   }
 }

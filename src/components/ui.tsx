@@ -3,6 +3,7 @@ import { api, compactUsd, pct, type Market, type PMEvent, type User } from '../a
 import { Icon } from '../icons'
 import { Link, navigate } from '../router'
 import { useApp } from '../store'
+import { GameCardBody, gameMoneyline, isGame } from './Game'
 import { Flash } from './Motion'
 import { useLiveQuote } from '../live'
 
@@ -138,13 +139,15 @@ export function MarketCard({ event, index = 0, metric }: { event: PMEvent; index
   }
   const m0 = top[0]
   return (
-    <Link to={href} className="card market-card" style={{ '--i': index % 24 } as React.CSSProperties}>
+    <Link to={href} className={`card market-card ${isGame(event) && gameMoneyline(event) ? 'game' : ''}`} style={{ '--i': index % 24 } as React.CSSProperties}>
       <div className="mc-head">
         <Img src={event.icon || event.image} size={38} />
-        <h3 className="mc-title">{event.title}</h3>
+        <h3 className="mc-title">{isGame(event) ? event.game.teams.map((t) => t.name).join(' vs ') : event.title}</h3>
         {isBinary && m0 && <LiveGauge m={m0} />}
       </div>
-      {isBinary && m0 ? (
+      {isGame(event) && gameMoneyline(event) ? (
+        <GameCardBody event={event} onQuick={quick} />
+      ) : isBinary && m0 ? (
         <div className="mc-binary">
           <button className="btn-yes" onClick={quick(m0, 'yes')}>{m0.outcomes[0]}</button>
           <button className="btn-no" onClick={quick(m0, 'no')}>{m0.outcomes[1]}</button>

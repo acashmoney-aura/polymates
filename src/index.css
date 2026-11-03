@@ -220,7 +220,7 @@ code { background: var(--surface); padding: 1px 5px; border-radius: 5px; margin:
 .chips-row > .active { background: var(--surface-3); color: var(--text-strong); }
 .wrap-chips { flex-wrap: wrap; }
 
-.grid { display: grid; gap: 12px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.grid { display: grid; gap: 12px; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-flow: row dense; }
 .card { background: var(--surface); border-radius: var(--r-xl); box-shadow: var(--shadow-card); }
 .market-card {
   min-height: 180px; display: flex; flex-direction: column; justify-content: space-between; padding: 12px 12px 6px; gap: 10px;
@@ -710,3 +710,76 @@ textarea { width: 100%; resize: vertical; }
 .code-editor .code-area textarea { color: transparent; caret-color: #e8eaed; background: none; resize: none; -webkit-text-fill-color: transparent; }
 .code-editor .code-area textarea::selection { background: #3262ff55; -webkit-text-fill-color: transparent; }
 .code-editor.script-editor { height: 340px; }
+
+/* ---------------- games (moneyline / spread / total) ---------------- */
+.gh { margin: 4px 0 12px; }
+.gh-status { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 500; margin-bottom: 10px; }
+.gh-live { display: inline-flex; align-items: center; gap: 6px; color: var(--no); font-weight: 600; }
+.gh-live i { width: 7px; height: 7px; border-radius: 9999px; background: var(--no); animation: pulse 1.6s infinite; }
+.gh-board {
+  display: grid; grid-template-columns: minmax(0, 1fr) repeat(var(--cols), 48px) 60px; align-items: center;
+  max-width: 440px; margin: 0 auto; row-gap: 6px; font-variant-numeric: tabular-nums;
+}
+.gh-row { display: contents; }
+.gh-h { font-size: 11px; font-weight: 600; color: var(--text-3); text-align: center; text-transform: uppercase; letter-spacing: 0.04em; }
+.gh-h.now, .gh-score.now { color: var(--no-text); }
+.gh-team { display: flex; align-items: center; gap: 10px; min-width: 0; font-size: 18px; }
+.gh-team b { font-weight: 500; }
+.gh-score { text-align: center; font-size: 18px; color: var(--text-2); }
+.gh-odds { text-align: center; font-size: 18px; font-weight: 600; }
+
+.game-lines { margin: 8px 0 32px; }
+.gl-tabs { border-bottom: 1px solid var(--border); }
+.gl-section h3 { font-size: 15px; font-weight: 600; margin: 24px 0 10px; }
+.gl-card { background: var(--surface); border: 1px solid var(--border-alpha); border-radius: var(--r-xl); margin-bottom: 10px; overflow: hidden; }
+.gl-card.has-sel { border-color: var(--border); }
+.gl-row { display: flex; align-items: center; gap: 12px; padding: 14px 16px; cursor: pointer; }
+.gl-name { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.gl-name b { font-size: 15px; font-weight: 600; }
+.gl-name small { font-size: 12px; }
+.gl-btns { display: flex; gap: 8px; flex: none; }
+.gl-btn {
+  display: inline-flex; align-items: center; justify-content: space-between; gap: 8px; width: 140px; height: 44px; padding: 0 12px;
+  border-radius: var(--r-md); background: var(--surface-2, #ffffff0d); color: var(--text-2); font-size: 13px; font-weight: 600;
+  box-shadow: 0 3px 0 0 #0004; transition: background-color 120ms, transform 80ms; font-variant-numeric: tabular-nums;
+}
+.gl-btn b { color: var(--text); font-size: 15px; flex: none; }
+.gl-btn span { min-width: 0; }
+.gl-btn:hover:not(:disabled) { background: #ffffff1a; }
+.gl-btn:active:not(:disabled) { transform: translateY(2px); box-shadow: none; }
+.gl-btn:disabled { opacity: 0.45; cursor: default; }
+.gl-btn.team { justify-content: center; background: color-mix(in srgb, var(--team) 55%, #0c0e13); color: #fff; }
+.gl-btn.team b { color: #fff; }
+.gl-btn.team:hover:not(:disabled) { background: color-mix(in srgb, var(--team) 80%, #0c0e13); }
+.gl-btn.selected { box-shadow: 0 0 0 2px var(--text), 0 3px 0 0 #0004; color: var(--text); }
+.gl-btn.team.selected { background: var(--team); }
+.gl-carousel { display: flex; align-items: center; gap: 4px; border-top: 1px solid var(--border-alpha); padding: 6px 8px; }
+.gl-carousel > button { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 8px; color: var(--text-2); flex: none; }
+.gl-carousel > button:disabled { opacity: 0.3; }
+.gl-lines { flex: 1; display: flex; justify-content: center; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+.gl-lines button { position: relative; padding: 6px 10px; font-size: 13px; font-weight: 500; color: var(--text-3); font-variant-numeric: tabular-nums; flex: none; }
+.gl-lines button.active { color: var(--text); font-size: 15px; font-weight: 700; }
+.gl-lines button.active::before { content: ''; position: absolute; top: -2px; left: 50%; translate: -50% 0; border: 5px solid transparent; border-top-color: #3b82f6; }
+.gl-book { padding: 0 16px 16px; }
+@media (max-width: 640px) {
+  .gl-row { flex-wrap: wrap; }
+  .gl-btns { width: 100%; }
+  .gl-btn { flex: 1; width: auto; }
+  .gh-team { font-size: 15px; }
+  .gh-score, .gh-odds { font-size: 15px; }
+}
+
+/* list card */
+.gc { display: flex; flex-direction: column; gap: 6px; }
+.gc-head { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; min-height: 16px; }
+.gc-col { width: 64px; text-align: center; font-size: 10px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.04em; }
+.gc-row { display: flex; align-items: center; gap: 6px; font-size: 14px; min-width: 0; }
+.gc-row b.grow { font-weight: 500; }
+.gc-score { width: 18px; text-align: center; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.gl-btn.sm { width: 64px; height: 32px; padding: 0 6px; font-size: 11px; gap: 3px; justify-content: center; }
+.gl-btn.sm b { font-size: 12px; }
+.gl-label { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.gl-label i { font-style: normal; flex: none; }
+@media (min-width: 900px) { .market-card.game { grid-column: span 2; } }
+.market-card.game .gc-col { width: 88px; }
+.market-card.game .gl-btn.sm { width: 88px; }
