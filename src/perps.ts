@@ -51,6 +51,15 @@ export function liqPrice(side: PerpSide, entry: number, leverage: number, mmr: n
   return Math.max(0, liq)
 }
 
+/** An open position re-marked at a newer price (the server's numbers shift by the change in unrealized P&L). */
+export function remark(p: PerpPosition, mark: number | null | undefined): PerpPosition {
+  if (p.status !== 'open' || !mark || mark === p.markPrice) return p
+  const upnl = (p.side === 'long' ? 1 : -1) * p.qty * (mark - p.entryPrice)
+  const d = upnl - p.unrealizedPnl
+  const pnl = p.pnl + d
+  return { ...p, markPrice: mark, unrealizedPnl: upnl, pnl, pnlPct: p.margin ? pnl / p.margin : 0, equity: p.equity + d }
+}
+
 /* ---------------- live data hooks ---------------- */
 
 export function usePerpAssets(intervalMs = 5000) {

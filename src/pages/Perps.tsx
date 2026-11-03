@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api, compactUsd } from '../api'
 import { AssetIcon, changeClass, PerpPositions, PerpTradePanel, Sparkline, StarButton } from '../components/PerpTrade'
-import { LineChart } from '../components/QuantCharts'
+import { LiveChart } from '../components/LiveChart'
+import { Flash } from '../components/Motion'
+import { usePerpMark } from '../live'
 import { Empty, Spinner } from '../components/ui'
 import { Icon } from '../icons'
 import {
@@ -167,9 +169,10 @@ export function PerpAssetPage({ symbol }: { symbol: string }) {
   const { asset, error } = usePerpAsset(symbol, range)
   const { leagueId, user, refreshPortfolio } = useApp()
   const watch = useWatchlist()
+  const mark = usePerpMark(symbol)
   const [positions, setPositions] = useState<PerpPosition[] | null>(null)
   const [showClosed, setShowClosed] = useState(false)
-  useTitle(asset ? `${fmtPrice(asset.price)} ${asset.symbol}` : symbol.toUpperCase())
+  useTitle(asset ? `${fmtPrice(mark?.price ?? asset.price)} ${asset.symbol}` : symbol.toUpperCase())
 
   const loadPositions = useCallback(() => {
     if (!leagueId || !user) return
@@ -192,8 +195,11 @@ export function PerpAssetPage({ symbol }: { symbol: string }) {
     return <div className="wrap page">{error ? <Empty title="Asset not found">{error} <Link to="/perps">Back to Perps</Link></Empty> : <Spinner />}</div>
   }
   const hist = asset.history
+  // the pushed mark is newer than the polled asset, so price everything off it
+  const price = mark?.price ?? asset.price
+  const liveAsset = price === asset.price ? asset : { ...asset, price }
   const first = hist[0]?.p
-  const rangeChange = first ? asset.price / first - 1 : null
+  const rangeChange = first ? price / first - 1 : null
   const up = (rangeChange ?? 0) >= 0
   const open = (positions ?? []).filter((p) => p.status === 'open')
   const closed = (positions ?? []).filter((p) => p.status !== 'open')
@@ -211,16 +217,11 @@ export function PerpAssetPage({ symbol }: { symbol: string }) {
           <StarButton on={watch.has(asset.symbol)} onToggle={() => watch.toggle(asset.symbol)} label={asset.symbol} />
         </div>
         <div className="perp-price-row">
-          <b className="tabular">{fmtPrice(asset.price)}</b>
+          <Flash value={price}><b className="tabular">{fmtPrice(price)}</b></Flash>
           <span className={`tabular ${up ? 'yes-accent' : 'no-color'}`}>{fmtPct(rangeChange)} <small className="muted">{range.toUpperCase()}</small></span>
         </div>
         <div className="perp-chart card">
-          <LineChart
-            t={hist.map((h) => h.t)}
-            series={[{ name: asset.symbol, color: up ? '#53e67f' : '#ff7767', values: hist.map((h) => h.p), area: true }]}
-            height={300}
-            format={(v) => fmtPrice(v)}
-          />
+          <LiveChart points={hist} live={mark} rangeKey={`${asset.symbol}:${range}`} height={300} format={fmtPrice} />
           <div className="perp-ranges">
             {RANGES.map((r) => <button key={r} className={r === range ? 'active' : ''} onClick={() => setRange(r)}>{r.toUpperCase()}</button>)}
           </div>
@@ -234,7 +235,7 @@ export function PerpAssetPage({ symbol }: { symbol: string }) {
           <div><span>Max leverage</span><b>{asset.maxLeverage}x</b></div>
         </div>
 
-        <div className="perp-mobile-trade"><PerpTradePanel asset={asset} onDone={loadPositions} /></div>
+        <div className="perp-mobile-trade"><PerpTradePanel asset={liveAsset} onDone={loadPositions} /></div>
 
         <div className="text-tabs big">
           <button className={!showClosed ? 'active' : ''} onClick={() => setShowClosed(false)}>Positions {open.length ? `(${open.length})` : ''}</button>
@@ -248,7 +249,7 @@ export function PerpAssetPage({ symbol }: { symbol: string }) {
           <p className="muted small">{showClosed ? 'No closed positions yet.' : `No open ${asset.symbol} positions.`}</p>
         )}
       </div>
-      <aside className="perp-asset-aside"><PerpTradePanel asset={asset} onDone={loadPositions} /></aside>
+      <aside className="perp-asset-aside"><PerpTradePanel asset={liveAsset} onDone={loadPositions} /></aside>
     </div>
   )
 }

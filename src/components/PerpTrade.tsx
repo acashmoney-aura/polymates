@@ -1,10 +1,11 @@
 import { useId, useRef, useState } from 'react'
 import { api, signedUsd, usd } from '../api'
 import { Icon } from '../icons'
-import { fmtPct, fmtPrice, liqPrice, type PerpAsset, type PerpPosition, type PerpSide } from '../perps'
+import { usePerpMark } from '../live'
+import { fmtPct, fmtPrice, liqPrice, remark, type PerpAsset, type PerpPosition, type PerpSide } from '../perps'
 import { Link } from '../router'
 import { useApp } from '../store'
-import { burst } from './Motion'
+import { burst, Flash } from './Motion'
 
 /* ---------------- small pieces ---------------- */
 
@@ -185,10 +186,10 @@ export function PerpPositions({ positions, onChange, showAsset = true }: { posit
   }
   return (
     <div className="perp-pos-list">
-      {positions.map((p) => {
+      {positions.map((p) => <LivePosition key={p.id} position={p}>{(p) => {
         const open = p.status === 'open'
         return (
-          <div key={p.id} className={`perp-pos ${open ? '' : 'closed'}`}>
+          <div className={`perp-pos ${open ? '' : 'closed'}`}>
             <div className="perp-pos-main">
               {showAsset && (
                 <Link to={`/perps/${p.symbol}`} className="perp-pos-asset">
@@ -200,7 +201,7 @@ export function PerpPositions({ positions, onChange, showAsset = true }: { posit
               {!open && <span className={`perp-badge reason ${p.closeReason ?? ''}`}>{REASON[p.closeReason ?? 'manual']}</span>}
               <span className="grow" />
               <span className="perp-pos-pnl">
-                <b className={changeClass(p.pnl)}>{signedUsd(p.pnl)}</b>
+                <Flash value={p.pnl}><b className={changeClass(p.pnl)}>{signedUsd(p.pnl)}</b></Flash>
                 <small className={changeClass(p.pnl)}>{fmtPct(p.pnlPct)}</small>
               </span>
               {open && (
@@ -222,7 +223,13 @@ export function PerpPositions({ positions, onChange, showAsset = true }: { posit
             </div>
           </div>
         )
-      })}
+      }}</LivePosition>)}
     </div>
   )
+}
+
+/** Re-renders a position with the latest pushed mark price. */
+function LivePosition({ position, children }: { position: PerpPosition; children: (p: PerpPosition) => React.ReactNode }) {
+  const mark = usePerpMark(position.status === 'open' ? position.symbol : undefined)
+  return <>{children(remark(position, mark?.price))}</>
 }

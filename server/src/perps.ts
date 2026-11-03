@@ -1,3 +1,4 @@
+import { EventEmitter } from 'node:events'
 import type { PnlSource } from './leaderboard.ts'
 import { db, markDirty, memberKey } from './state.ts'
 import type { Activity, OrderSource, PerpPosition, PerpSide } from './types.ts'
@@ -18,7 +19,8 @@ import { emit, fail, fetchJson, id, money, now } from './util.ts'
  * ------------------------------------------------------------------ */
 
 const PERPS_API = 'https://api.perpetuals.polymarket.com/v1/info'
-const TICK_MS = 5_000
+// mark prices drive live charts and liquidations, so poll the venue every couple of seconds
+const TICK_MS = 2_000
 const STATS_MS = 60_000
 const INSTRUMENTS_MS = 10 * 60_000
 const HOUR = 3_600_000
@@ -101,6 +103,10 @@ interface Ticker {
 type Kline = [number, string, string, string, string, string, number]
 interface Stat { instrument_id: number; symbol: string; volume: string; open_price: string; klines: Kline[] }
 interface FeeSchedule { fee_schedule: { category: string; taker_fee_rate: string }[] }
+
+/** One batch per poll: `{ t, u: [[symbol, markPrice], ...] }`, streamed to browsers on /api/live. */
+export const perpTicks = new EventEmitter()
+perpTicks.setMaxListeners(0)
 
 export const perps = {
   assets: new Map<string, PerpAsset>(),
@@ -397,6 +403,7 @@ export function startPerps() {
       busy = false
     }
     processTick()
+    if (perps.assets.size) perpTicks.emit('tick', { t: now(), u: [...perps.assets.values()].map((a) => [a.symbol, a.price]) })
   }
   void tick()
   setInterval(tick, TICK_MS).unref()

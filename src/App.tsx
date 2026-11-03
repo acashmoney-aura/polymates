@@ -14,6 +14,7 @@ import { Leaderboard } from './pages/Leaderboard'
 import { ActivityPage, Portfolio } from './pages/Portfolio'
 import { Link, useLocation, useTitle } from './router'
 import { AppProvider, useApp } from './store'
+import { NotificationsProvider } from './components/Notifications'
 
 // map path data is ~150KB, so the elections pages load on demand
 const ElectionsPage = lazy(() => import('./pages/Elections').then((m) => ({ default: m.ElectionsPage })))
@@ -152,13 +153,15 @@ function Routes() {
 export default function App() {
   return (
     <AppProvider>
-      <Header />
-      <RoutedMain />
-      <Footer />
-      <MobileNav />
-      <AuthModal />
-      <SheetHost />
-      <Toasts />
+      <NotificationsProvider>
+        <Header />
+        <RoutedMain />
+        <Footer />
+        <MobileNav />
+        <AuthModal />
+        <SheetHost />
+        <Toasts />
+      </NotificationsProvider>
     </AppProvider>
   )
 }

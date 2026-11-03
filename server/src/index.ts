@@ -10,7 +10,7 @@ import { startHouse } from './house.ts'
 import { leagueAdmin, publicUser } from './leagues.ts'
 import { handleMcp } from './mcp.ts'
 import { live, liveStatus, resubscribe, startLive } from './live.ts'
-import { getPerpAsset, listPerpAssets, perpPnlSource, perpsApi, setTestPrice, startPerps } from './perps.ts'
+import { getPerpAsset, listPerpAssets, perpPnlSource, perpsApi, perpTicks, setTestPrice, startPerps } from './perps.ts'
 import { electionsOverview } from './elections.ts'
 import { catalog, marketById, pmHistory, refreshMarkets, syncCatalog } from './polymarket.ts'
 import { createScript, deleteScript, listScripts, scriptLogsFor, updateScript } from './script-api.ts'
@@ -380,10 +380,14 @@ app.get('/api/live', (req, res) => {
   res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive', 'x-accel-buffering': 'no' })
   res.write(': connected\n\n')
   const onPrices = (batch: unknown) => res.write(`data: ${JSON.stringify(batch)}\n\n`)
+  // perps marks go out as a named event so older clients that only read plain messages ignore them
+  const onPerps = (batch: unknown) => res.write(`event: perps\ndata: ${JSON.stringify(batch)}\n\n`)
   live.on('prices', onPrices)
+  perpTicks.on('tick', onPerps)
   const ping = setInterval(() => res.write(': ping\n\n'), 25_000)
   req.on('close', () => {
     live.off('prices', onPrices)
+    perpTicks.off('tick', onPerps)
     clearInterval(ping)
   })
 })
@@ -402,8 +406,10 @@ app.get('/api/stream', (req, res) => {
   let timer: NodeJS.Timeout | null = null
   const onEvent = (e: BusEvent) => {
     if (e.leagueId !== leagueId) return
-    // coalesce bursts (e.g. a sweep filling many orders) into one message per key
-    pending.set(`${e.type}:${e.marketId ?? ''}:${e.userId ?? ''}`, { ...e, data: e.type === 'trade' ? e.data : undefined })
+    // coalesce bursts (e.g. a sweep filling many orders) into one message per key; activity rows are the
+    // league feed (already visible to members), sent whole so clients can raise notifications from them
+    const act = e.type === 'activity' ? (e.data as { id?: string } | undefined) : undefined
+    pending.set(`${e.type}:${e.marketId ?? ''}:${e.userId ?? ''}:${act?.id ?? ''}`, { ...e, data: e.type === 'trade' || act ? e.data : undefined })
     timer ??= setTimeout(() => {
       timer = null
       for (const ev of pending.values()) res.write(`data: ${JSON.stringify(ev)}\n\n`)

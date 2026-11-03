@@ -4,6 +4,7 @@ import { Icon, Logo, type IconName } from '../icons'
 import { Link, navigate, useLocation } from '../router'
 import { useApp } from '../store'
 import { AnimatedNumber } from './Motion'
+import { NotificationBell } from './Notifications'
 import { Avatar, ModeBadge } from './ui'
 
 export const CATEGORIES: { slug: string; label: string; icon?: IconName }[] = [
@@ -152,6 +153,7 @@ export function Header() {
               <button className="btn btn-primary btn-sm" onClick={() => openAuth('signup')}>Sign Up</button>
             </>
           )}
+          <NotificationBell />
           <Link to="/developers" className="icon-btn hide-sm" aria-label="Agents and API" title="Agents & API"><Icon name="bot" /></Link>
           <UserMenu />
         </div>

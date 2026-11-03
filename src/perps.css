@@ -173,3 +173,17 @@
   .perp-pos-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 .perp-panel .amount-input input { border: 0; background: none; height: auto; padding: 0; border-radius: 0; }
+
+/* live chart */
+.live-chart { position: relative; }
+.live-badge { position: absolute; left: 4px; top: 0; display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--yes-accent); z-index: 1; }
+.live-badge i { width: 7px; height: 7px; border-radius: 50%; background: var(--yes-accent); animation: live-dot 1.6s ease-in-out infinite; }
+@keyframes live-dot { 50% { opacity: 0.3; } }
+.live-ping { transform-box: fill-box; transform-origin: center; animation: live-ping 1.4s ease-out forwards; opacity: 0; }
+@keyframes live-ping { 0% { transform: scale(0.4); opacity: 0.55; } 100% { transform: scale(2.6); opacity: 0; } }
+.live-tag rect { fill: var(--yes); }
+.live-tag.down rect { fill: var(--no); }
+.live-tag text { fill: #fff; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.live-tag { animation: live-tag 600ms ease-out; }
+@keyframes live-tag { 0% { filter: brightness(1.6); } 100% { filter: none; } }
+@media (prefers-reduced-motion: reduce) { .live-ping, .live-tag, .live-badge i { animation: none; } }
