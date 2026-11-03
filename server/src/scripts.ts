@@ -18,6 +18,8 @@ const TICK_DEADLINE_MS = 5000
 const MEMORY_LIMIT = 32 * 1024 * 1024
 const MAX_CALLS_PER_TICK = 200
 const MAX_LOGS = 200
+/** Ticks run side by side (each in its own WASM module) so one slow bot doesn't hold up the rest. */
+const MAX_CONCURRENT = Math.max(1, Number(process.env.SCRIPT_CONCURRENCY) || 8)
 
 const PRELUDE = `
 const __call = (op, ...args) => {
@@ -149,29 +151,41 @@ export async function runScript(script: Script) {
   }
 }
 
-let running = false
-export function startScheduler() {
-  setInterval(async () => {
-    if (running) return
-    running = true
-    try {
-      const due = [...db.scripts.values()].filter(
-        (s) => s.enabled && (!s.lastRunAt || Date.now() - s.lastRunAt >= Math.max(MIN_INTERVAL_SEC, s.intervalSec) * 1000),
-      )
-      for (const s of due) {
-        if (!db.members.has(`${s.leagueId}:${s.userId}`)) continue
-        await runScript(s)
-        // a script that keeps crashing gets switched off
-        const recent = (scriptLogs.get(s.id) ?? []).slice(-10)
-        if (recent.length === 10 && recent.every((l) => l.level === 'error')) {
-          s.enabled = false
-          pushLog(s.id, 'error', 'Disabled after 10 consecutive errors')
-        }
-      }
-    } finally {
-      running = false
+const inFlight = new Set<string>()
+// one tick per user at a time: two of a user's bots ordering at once could both pass the cash check
+const busyUsers = new Set<string>()
+
+async function tick(s: Script) {
+  try {
+    await runScript(s)
+    // a script that keeps crashing gets switched off
+    const recent = (scriptLogs.get(s.id) ?? []).slice(-10)
+    if (recent.length === 10 && recent.every((l) => l.level === 'error')) {
+      s.enabled = false
+      pushLog(s.id, 'error', 'Disabled after 10 consecutive errors')
     }
-  }, 1000).unref()
+  } finally {
+    inFlight.delete(s.id)
+    busyUsers.delete(s.userId)
+  }
+}
+
+export function startScheduler() {
+  setInterval(() => {
+    if (inFlight.size >= MAX_CONCURRENT) return
+    const due = [...db.scripts.values()]
+      .filter((s) => s.enabled && !inFlight.has(s.id) && db.members.has(`${s.leagueId}:${s.userId}`)
+        && (!s.lastRunAt || Date.now() - s.lastRunAt >= Math.max(MIN_INTERVAL_SEC, s.intervalSec) * 1000))
+      // most overdue first, so newer scripts aren't starved by older ones
+      .sort((a, b) => (a.lastRunAt ?? 0) - (b.lastRunAt ?? 0))
+    for (const s of due) {
+      if (inFlight.size >= MAX_CONCURRENT) break
+      if (busyUsers.has(s.userId)) continue
+      inFlight.add(s.id)
+      busyUsers.add(s.userId)
+      void tick(s)
+    }
+  }, 250).unref()
 }
 
 export const EXAMPLE_SCRIPT = `// Runs every interval inside a sandbox. Use pm.* to read markets and trade.
