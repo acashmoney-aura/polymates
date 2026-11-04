@@ -26,16 +26,63 @@ const app = express()
 app.set('trust proxy', true)
 app.use(cors({ origin: true, credentials: false, exposedHeaders: ['Mcp-Session-Id'] }))
 app.use(express.json({ limit: '256kb' }))
-// gzip JSON bodies over 2KB (event lists run to hundreds of KB); streams use res.write and are untouched
+/*
+ * Shared read responses are cached for a few seconds and gzipped once: forty people on the home page ask for
+ * the same event list, and building it is the most expensive thing a request does. League views are cached per
+ * league (the URL carries ?league=), and served from cache only to members of that league.
+ */
+const CACHE_TTL: [RegExp, number][] = [
+  [/^\/api\/events$/, 5_000],
+  [/^\/api\/events\/[^/]+$/, 5_000],
+  [/^\/api\/events\/[^/]+\/curve$/, 30_000],
+  [/^\/api\/markets$/, 5_000],
+  [/^\/api\/markets\/[^/]+\/history$/, 30_000],
+  [/^\/api\/categories$/, 60_000],
+  [/^\/api\/perps\/assets$/, 2_000],
+  [/^\/api\/quant\/(scanner|volatility)$/, 30_000],
+]
+const CACHE_MAX = 500
+interface Cached { at: number; ttl: number; text: string; gz: Buffer | null }
+const responseCache = new Map<string, Cached>()
+
+function sendJson(req: Request, res: Response, entry: Cached) {
+  res.set('content-type', 'application/json; charset=utf-8')
+  // gzip anything over 2KB (event lists run to hundreds of KB); streams use res.write and are untouched
+  if (entry.text.length >= 2048 && /\bgzip\b/.test(String(req.headers['accept-encoding'] ?? ''))) {
+    entry.gz ??= zlib.gzipSync(entry.text, { level: 4 })
+    res.set({ 'content-encoding': 'gzip', vary: 'Accept-Encoding' })
+    res.end(entry.gz)
+  } else {
+    res.end(entry.text)
+  }
+  return res
+}
+
 app.use((req, res, next) => {
-  if (!/\bgzip\b/.test(String(req.headers['accept-encoding'] ?? ''))) return next()
+  let ttl = req.method === 'GET' ? CACHE_TTL.find(([re]) => re.test(req.path))?.[1] : undefined
+  if (ttl && req.query.league) {
+    const auth = authenticate(req)
+    if (!auth || !db.members.has(memberKey(String(req.query.league), auth.user.id))) ttl = undefined
+  }
+  const key = req.originalUrl
+  if (ttl) {
+    const hit = responseCache.get(key)
+    if (hit && Date.now() - hit.at < hit.ttl) {
+      res.set('x-cache', 'hit')
+      return void sendJson(req, res, hit)
+    }
+  }
   const json = res.json.bind(res)
   res.json = (body: unknown) => {
     const text = JSON.stringify(body)
-    if (text === undefined || text.length < 2048) return json(body)
-    res.set({ 'content-type': 'application/json; charset=utf-8', 'content-encoding': 'gzip', vary: 'Accept-Encoding' })
-    res.end(zlib.gzipSync(text, { level: 4 }))
-    return res
+    if (text === undefined) return json(body)
+    const entry: Cached = { at: Date.now(), ttl: ttl ?? 0, text, gz: null }
+    if (ttl && res.statusCode === 200) {
+      responseCache.delete(key)
+      responseCache.set(key, entry)
+      if (responseCache.size > CACHE_MAX) responseCache.delete(responseCache.keys().next().value!)
+    }
+    return sendJson(req, res, entry)
   }
   next()
 })
