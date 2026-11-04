@@ -57,9 +57,28 @@ export function serializeMarket(m: PMMarket, league?: League) {
   }
 }
 
-export function serializeEvent(e: PMEvent, league?: League, opts: { full?: boolean } = {}) {
+/** sports lines a game card shows, kept even when a compact list trims the rest */
+const CARD_LINES = /^(moneyline|spreads|totals|map_handicap|tennis_set_handicap|tennis_game_handicap|tennis_match_totals)$/
+/** markets per event in a compact list: enough for a card and its top outcomes */
+const COMPACT_MARKETS = 12
+
+export function serializeEvent(e: PMEvent, league?: League, opts: { full?: boolean; compact?: boolean } = {}) {
   const markets = e.marketIds.map((mid) => catalog.markets.get(mid)).filter(Boolean) as PMMarket[]
-  const visible = opts.full ? markets : markets.filter((m) => m.active || m.resolved)
+  let visible = opts.full ? markets : markets.filter((m) => m.active || m.resolved)
+  if (opts.compact && visible.length > COMPACT_MARKETS) {
+    // cards show a few outcomes (or a game's main lines); event pages fetch everything separately
+    const keep = new Set([
+      ...visible.filter((m) => CARD_LINES.test(m.sportsMarketType ?? '')).map((m) => m.id),
+      ...[...visible].sort((a, b) => displayPrice(b) - displayPrice(a)).slice(0, COMPACT_MARKETS).map((m) => m.id),
+      // and the biggest movers, which the breaking ticker shows
+      ...[...visible].sort((a, b) => Math.abs(b.change24h ?? 0) - Math.abs(a.change24h ?? 0)).slice(0, 3).map((m) => m.id),
+    ])
+    visible = visible.filter((m) => keep.has(m.id))
+  }
+  const ser = (m: PMMarket) => {
+    const s = serializeMarket(m, league)
+    return opts.compact ? { ...s, description: '' } : s
+  }
   return {
     id: e.id,
     slug: e.slug,
@@ -80,7 +99,8 @@ export function serializeEvent(e: PMEvent, league?: League, opts: { full?: boole
     commentCount: e.commentCount,
     enabled: league ? eventEnabled(league, e.id) : true,
     game: e.game ?? null,
-    markets: visible.map((m) => serializeMarket(m, league)),
+    marketCount: markets.filter((m) => m.active || m.resolved).length,
+    markets: visible.map(ser),
   }
 }
 
@@ -155,6 +175,8 @@ export interface ListEventsInput {
   /** minimum 24h volume in USD */
   minVolume24h?: number
   minLiquidity?: number
+  /** card-sized events: no rules text, at most a dozen outcomes plus game lines */
+  compact?: boolean
 }
 
 /* ---------------- the API (scoped to one user) ---------------- */
@@ -232,7 +254,7 @@ export function agentApi(userId: string, source: OrderSource) {
       const offset = Math.max(Number(input.offset) || 0, 0)
       return {
         total: list.length,
-        events: list.slice(offset, offset + limit).map((e) => serializeEvent(e, l)),
+        events: list.slice(offset, offset + limit).map((e) => serializeEvent(e, l, { compact: input.compact })),
       }
     },
 

@@ -179,7 +179,8 @@ export function useEvents(params: string, deps: unknown[] = []) {
   useEffect(() => {
     let live = true
     setError(null)
-    api<{ total: number; events: PMEvent[] }>(`/api/events${params}`)
+    // cards only need a few outcomes each; full events come from /api/events/:slug
+    api<{ total: number; events: PMEvent[] }>(`/api/events${params}${params.includes('?') ? '&' : '?'}compact=1`)
       .then((d) => live && setData(d))
       .catch((e) => live && setError(e.message))
     return () => { live = false }

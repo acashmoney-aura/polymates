@@ -183,7 +183,7 @@ function useInfiniteEvents(params: Record<string, string | number | undefined | 
   const load = (offset: number, k: string) => {
     loadingRef.current = true
     setState((st) => ({ ...st, loading: true }))
-    api<{ total: number; events: PMEvent[] }>(`/api/events${qs({ ...params, limit: PAGE, offset })}`)
+    api<{ total: number; events: PMEvent[] }>(`/api/events${qs({ ...params, limit: PAGE, offset, compact: 1 })}`)
       .then((d) => setState((st) => {
         if (offset && st.key !== k) return st
         const seen = new Set(offset ? st.events.map((e) => e.id) : [])

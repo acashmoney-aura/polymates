@@ -1,3 +1,4 @@
+import zlib from 'node:zlib'
 import cors from 'cors'
 import express, { type NextFunction, type Request, type Response } from 'express'
 import { OAuth2Client } from 'google-auth-library'
@@ -25,6 +26,19 @@ const app = express()
 app.set('trust proxy', true)
 app.use(cors({ origin: true, credentials: false, exposedHeaders: ['Mcp-Session-Id'] }))
 app.use(express.json({ limit: '256kb' }))
+// gzip JSON bodies over 2KB (event lists run to hundreds of KB); streams use res.write and are untouched
+app.use((req, res, next) => {
+  if (!/\bgzip\b/.test(String(req.headers['accept-encoding'] ?? ''))) return next()
+  const json = res.json.bind(res)
+  res.json = (body: unknown) => {
+    const text = JSON.stringify(body)
+    if (text === undefined || text.length < 2048) return json(body)
+    res.set({ 'content-type': 'application/json; charset=utf-8', 'content-encoding': 'gzip', vary: 'Accept-Encoding' })
+    res.end(zlib.gzipSync(text, { level: 4 }))
+    return res
+  }
+  next()
+})
 
 const str = (x: unknown) => (typeof x === 'string' && x ? x : undefined)
 
@@ -349,6 +363,7 @@ app.get('/api/events', wrap((req) => {
     kind: req.query.kind ? String(req.query.kind) : undefined,
     minVolume24h: req.query.minVol ? Number(req.query.minVol) : undefined,
     minLiquidity: req.query.minLiq ? Number(req.query.minLiq) : undefined,
+    compact: req.query.compact === '1',
   })
 }))
 app.get('/api/elections', wrap(() => electionsOverview()))
@@ -506,6 +521,14 @@ async function resolveMarkets() {
   }
 }
 
+/** Markets someone holds or has an order on stay in the catalog even after they drop out of the sync. */
+function heldMarkets() {
+  const ids = new Set<string>()
+  for (const p of db.positions.values()) if (p.yes > 0 || p.no > 0) ids.add(p.marketId)
+  for (const o of db.orders.values()) if (o.status === 'open') ids.add(o.marketId)
+  return ids
+}
+
 function every(ms: number, fn: () => Promise<unknown>) {
   let busy = false
   setInterval(async () => {
@@ -526,11 +549,12 @@ async function main() {
   rebuildBooks()
   const port = Number(process.env.PORT ?? 8787)
   app.listen(port, () => console.log(`[polymates] listening on :${port}`))
-  await syncCatalog()
+  await syncCatalog(heldMarkets)
   await resolveMarkets().catch((err) => console.error('[resolve]', err))
   recordEquitySnapshots()
   startLive()
-  every(90_000, async () => { await syncCatalog(); resubscribe() })
+  // prices stream live over websockets; the catalog sync only picks up new events, volumes and closures
+  every(5 * 60_000, async () => { await syncCatalog(heldMarkets); resubscribe() })
   every(60_000, resolveMarkets)
   every(8_000, sweepMirrorOrders)
   every(10 * 60_000, async () => recordEquitySnapshots())

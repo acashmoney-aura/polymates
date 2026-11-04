@@ -25,7 +25,13 @@ export const catalog = {
   slugs: new Map<string, string>(),
   markets: new Map<string, PMMarket>(),
   syncedAt: 0,
+  /** event id -> last time someone opened it by slug; recently viewed events survive pruning */
+  viewed: new Map<string, number>(),
 }
+
+/** let queued requests run between big chunks of parsing */
+const breathe = () => new Promise<void>((r) => setImmediate(r))
+const VIEW_KEEP_MS = 60 * 60_000
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const parseArr = (v: unknown): any[] => {
@@ -142,37 +148,68 @@ export function ingestEvent(e: any, rank: number): PMEvent | null {
 
 let syncing: Promise<void> | null = null
 
-export function syncCatalog() {
+/**
+ * Pull the most active events (plus each category's top 100) from Gamma. Pages are fetched and ingested one
+ * at a time with a yield in between, so a sync never holds the event loop for long. Events that dropped out
+ * are removed afterwards unless someone holds one of their markets or opened them recently; otherwise the
+ * catalog only ever grows and every list, sort and resubscribe gets slower.
+ */
+export function syncCatalog(held: () => Set<string> = () => new Set()) {
   if (syncing) return syncing
   syncing = (async () => {
     const t0 = Date.now()
     let rank = 0
     const base = `${GAMMA}/events?active=true&closed=false&archived=false&order=volume24hr&ascending=false&limit=100`
     const seen = new Set<string>()
+    let failed = false
+    const ingestRows = async (rows: any[], rankOf: (e: any) => number | null) => {
+      for (let i = 0; i < rows.length; i++) {
+        const e = rows[i]
+        if (seen.has(String(e.id))) continue
+        const r = rankOf(e)
+        if (r !== null && ingestEvent(e, r)) seen.add(String(e.id))
+        if (i % 25 === 24) await breathe()
+      }
+    }
     for (let page = 0; page < 6; page++) {
       try {
         const rows = await fetchJson<any[]>(`${base}&offset=${page * 100}`, 20_000)
-        for (const e of rows) if (ingestEvent(e, rank)) { seen.add(String(e.id)); rank++ }
+        await ingestRows(rows, () => rank++)
         if (rows.length < 100) break
       } catch (err) {
+        failed = true
         console.warn('[catalog] page failed', page, (err as Error).message)
       }
+      await breathe()
     }
-    await Promise.all(
-      CATEGORIES.map(async (c) => {
-        try {
-          const rows = await fetchJson<any[]>(`${base}&tag_slug=${c.slug}`, 20_000)
-          for (const e of rows) {
-            if (seen.has(String(e.id))) continue
-            ingestEvent(e, 10_000 + num(1e9 - num(e.volume24hr)))
-          }
-        } catch (err) {
-          console.warn('[catalog] tag failed', c.slug, (err as Error).message)
-        }
-      }),
-    )
+    for (const c of CATEGORIES) {
+      try {
+        const rows = await fetchJson<any[]>(`${base}&tag_slug=${c.slug}`, 20_000)
+        await ingestRows(rows, (e) => 10_000 + num(1e9 - num(e.volume24hr)))
+      } catch (err) {
+        failed = true
+        console.warn('[catalog] tag failed', c.slug, (err as Error).message)
+      }
+      await breathe()
+    }
+    // only prune after a complete sync, so a Gamma hiccup can't empty the catalog
+    let pruned = 0
+    if (!failed && seen.size > 100) {
+      const keepMarkets = held()
+      const now = Date.now()
+      for (const [id, e] of catalog.events) {
+        if (seen.has(id)) continue
+        if (now - (catalog.viewed.get(id) ?? 0) < VIEW_KEEP_MS) continue
+        if (e.marketIds.some((m) => keepMarkets.has(m))) continue
+        for (const m of e.marketIds) if (!keepMarkets.has(m)) catalog.markets.delete(m)
+        catalog.events.delete(id)
+        if (catalog.slugs.get(e.slug) === id) catalog.slugs.delete(e.slug)
+        catalog.viewed.delete(id)
+        pruned++
+      }
+    }
     catalog.syncedAt = Date.now()
-    console.log(`[catalog] ${catalog.events.size} events / ${catalog.markets.size} markets in ${Date.now() - t0}ms`)
+    console.log(`[catalog] ${catalog.events.size} events / ${catalog.markets.size} markets in ${Date.now() - t0}ms${pruned ? `, pruned ${pruned}` : ''}`)
   })().finally(() => {
     syncing = null
   })
@@ -182,6 +219,7 @@ export function syncCatalog() {
 export async function eventBySlug(slug: string): Promise<PMEvent | null> {
   const known = catalog.slugs.get(slug)
   const ev = known ? catalog.events.get(known) : undefined
+  if (ev) catalog.viewed.set(ev.id, Date.now())
   // live games change score and lines by the minute, so refetch them more often than the catalog sync
   const stale = ev?.game && !ev.game.ended && !ev.closed && Date.now() - ev.fetchedAt > 15_000
   if (ev && !stale) return ev
@@ -194,7 +232,9 @@ export async function eventBySlug(slug: string): Promise<PMEvent | null> {
     }
   }
   const rows = await fetchJson<any[]>(`${GAMMA}/events?slug=${encodeURIComponent(slug)}`)
-  return rows[0] ? ingestEvent(rows[0], -1) : null
+  const fresh = rows[0] ? ingestEvent(rows[0], -1) : null
+  if (fresh) catalog.viewed.set(fresh.id, Date.now())
+  return fresh
 }
 
 export async function eventById(id: string): Promise<PMEvent | null> {

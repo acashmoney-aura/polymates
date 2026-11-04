@@ -78,7 +78,7 @@ export function burst(x = window.innerWidth / 2, y = window.innerHeight / 2, n =
 export function LiveTicker() {
   const [items, setItems] = useState<{ slug: string; title: string; price: number; change: number }[]>([])
   useEffect(() => {
-    const load = () => api<{ events: PMEvent[] }>('/api/events?tag=breaking&limit=24').then((d) => {
+    const load = () => api<{ events: PMEvent[] }>('/api/events?tag=breaking&limit=24&compact=1').then((d) => {
       setItems(d.events.flatMap((e) => {
         const m = [...e.markets].filter((x) => x.active).sort((a, b) => Math.abs(b.change24h ?? 0) - Math.abs(a.change24h ?? 0))[0]
         return m ? [{ slug: e.slug, title: e.negRisk && e.markets.length > 1 ? m.title : e.title, price: m.price, change: m.change24h ?? 0 }] : []

@@ -11,7 +11,8 @@ import { catalog, displayPrice } from './polymarket.ts'
 
 const WS_URL = 'wss://ws-subscriptions-clob.polymarket.com/ws/market'
 const TOKENS_PER_SOCKET = 400
-const MAX_TOKENS = 6000
+// each subscribed market costs CPU on every book change; the top 3000 cover what people browse
+const MAX_TOKENS = 3000
 const WINDOW_MS = 60 * 60_000
 const SAMPLE_MS = 5_000
 
