@@ -8,6 +8,9 @@
 # Every open tab holds one or two long-lived streams (/api/stream, /api/live), so the default limit of 80
 # concurrent requests per instance fills up with ~40 viewers and everything else gets 429. Node handles
 # thousands of idle streams, so allow Cloud Run's maximum.
+# The one-instance limit is set on the service (--min/--max), not per revision: a per-revision minimum kept every
+# replaced revision running (and billed, and saving its stale state) for up to an hour after each deploy. State
+# saves are also generation-checked (state.ts), so an overlapping copy exits instead of overwriting newer data.
 set -euo pipefail
 
 PROJECT="${PROJECT:-$(gcloud config get-value project 2>/dev/null)}"
@@ -26,7 +29,8 @@ gcloud run deploy "$SERVICE" \
   --project "$PROJECT" \
   --region "$REGION" \
   --allow-unauthenticated \
-  --min-instances 1 --max-instances 1 \
+  --min 1 --max 1 \
+  --min-instances default --max-instances default \
   --no-cpu-throttling --cpu "${CPU:-2}" --memory 2Gi \
   --concurrency 1000 \
   --timeout 3600 \

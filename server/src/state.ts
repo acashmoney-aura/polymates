@@ -126,19 +126,38 @@ function fileStore(file: string): Store {
   }
 }
 
+/** Another instance wrote the state after this one loaded it, so this copy is out of date. */
+export class StaleStateError extends Error {}
+
+/**
+ * Cloud Storage snapshot with optimistic concurrency: every save names the object generation this process
+ * last loaded or wrote, so an instance left running by a deploy (or any second copy) cannot overwrite newer
+ * state with its own outdated view. The loser gets StaleStateError instead.
+ */
 async function gcsStore(bucketName: string, object: string): Promise<Store> {
   const { Storage } = await import('@google-cloud/storage')
-  const file = new Storage().bucket(bucketName).file(object)
+  const bucket = new Storage().bucket(bucketName)
+  const file = bucket.file(object)
+  // 0 means "only if the object does not exist yet"
+  let generation = 0
   return {
     describe: `gs://${bucketName}/${object}`,
     async load() {
       const [exists] = await file.exists()
       if (!exists) return null
-      const [buf] = await file.download()
+      const [meta] = await file.getMetadata()
+      generation = Number(meta.generation)
+      const [buf] = await bucket.file(object, { generation }).download()
       return JSON.parse(buf.toString('utf8'))
     },
     async save(data) {
-      await file.save(data, { contentType: 'application/json', resumable: false })
+      try {
+        await file.save(data, { contentType: 'application/json', resumable: false, preconditionOpts: { ifGenerationMatch: generation } })
+      } catch (err) {
+        if ((err as { code?: number }).code === 412) throw new StaleStateError(`state generation ${generation} was replaced by another instance`)
+        throw err
+      }
+      generation = Number(file.metadata.generation ?? (await file.getMetadata())[0].generation)
     },
   }
 }
@@ -170,6 +189,12 @@ export async function flush() {
   saving = store
     .save(data)
     .catch((err) => {
+      if (err instanceof StaleStateError) {
+        // never retry: a newer copy owns the state. Exiting lets the platform restart a fresh instance that
+        // loads the latest file (or, for a revision that no longer serves traffic, simply stop).
+        console.error(`[state] ${err.message}; this instance is stale and is exiting without saving`)
+        process.exit(1)
+      }
       dirty = true
       console.error('[state] save failed', err)
     })
