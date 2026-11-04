@@ -174,6 +174,12 @@ export async function initState() {
   const snap = await store.load()
   if (snap) fromSnapshot(snap)
   console.log(`[state] ${store.describe} users=${db.users.size} leagues=${db.leagues.size} orders=${db.orders.size}`)
+  if (bucket) {
+    // claim the snapshot straight away: bumping the generation makes any older instance still draining after a
+    // deploy fail its next save (and exit) instead of racing this one
+    markDirty()
+    await flush()
+  }
   setInterval(() => void flush(), 3000).unref()
 }
 
