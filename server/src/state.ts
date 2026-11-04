@@ -126,13 +126,21 @@ function fileStore(file: string): Store {
   }
 }
 
-/** Another instance wrote the state after this one loaded it, so this copy is out of date. */
+/** A newer revision owns the state; this instance must not write it again. */
 export class StaleStateError extends Error {}
 
+/** Cloud Run revision names end in an increasing number (polymates-api-00012-6sl); 0 outside Cloud Run. */
+const revisionNumber = (name: string | undefined) => Number(name?.match(/-(\d+)-[a-z0-9]+$/)?.[1] ?? 0)
+const REVISION = process.env.K_REVISION ?? ''
+
 /**
- * Cloud Storage snapshot with optimistic concurrency: every save names the object generation this process
- * last loaded or wrote, so an instance left running by a deploy (or any second copy) cannot overwrite newer
- * state with its own outdated view. The loser gets StaleStateError instead.
+ * Cloud Storage snapshot with optimistic concurrency, for the minutes after a deploy when the old revision is
+ * still draining connections and running its timers. Every save names the object generation this process last
+ * loaded or wrote and records which revision wrote it. When a save is rejected because someone else wrote:
+ * - written by a newer revision: this copy is stale, so it throws StaleStateError and never writes again;
+ * - written by an older revision (or by code that predates this check): this copy is the newer one, so it
+ *   takes the current generation and writes over it.
+ * The newest revision therefore always ends up owning the file, and an old copy can never roll it back.
  */
 async function gcsStore(bucketName: string, object: string): Promise<Store> {
   const { Storage } = await import('@google-cloud/storage')
@@ -151,11 +159,24 @@ async function gcsStore(bucketName: string, object: string): Promise<Store> {
       return JSON.parse(buf.toString('utf8'))
     },
     async save(data) {
+      const put = () => file.save(data, {
+        contentType: 'application/json',
+        resumable: false,
+        metadata: { metadata: { revision: REVISION } },
+        preconditionOpts: { ifGenerationMatch: generation },
+      })
       try {
-        await file.save(data, { contentType: 'application/json', resumable: false, preconditionOpts: { ifGenerationMatch: generation } })
+        await put()
       } catch (err) {
-        if ((err as { code?: number }).code === 412) throw new StaleStateError(`state generation ${generation} was replaced by another instance`)
-        throw err
+        if ((err as { code?: number }).code !== 412) throw err
+        const [meta] = await file.getMetadata()
+        const writer = String(meta.metadata?.revision ?? '')
+        if (revisionNumber(writer) > revisionNumber(REVISION)) {
+          throw new StaleStateError(`newer revision ${writer} owns the state`)
+        }
+        console.warn(`[state] ${writer || 'an older instance'} wrote the state after us; ${REVISION || 'this instance'} is newer and takes it back`)
+        generation = Number(meta.generation)
+        await put()
       }
       generation = Number(file.metadata.generation ?? (await file.getMetadata())[0].generation)
     },
@@ -165,6 +186,8 @@ async function gcsStore(bucketName: string, object: string): Promise<Store> {
 let store: Store
 let dirty = false
 let saving: Promise<void> | null = null
+/** set once a newer revision owns the snapshot; this instance keeps serving open connections but never saves */
+let retired = false
 
 export async function initState() {
   const bucket = process.env.STATE_BUCKET
@@ -188,7 +211,7 @@ export function markDirty() {
 }
 
 export async function flush() {
-  if (!dirty || !store) return saving ?? undefined
+  if (retired || !dirty || !store) return saving ?? undefined
   if (saving) return saving
   dirty = false
   const data = JSON.stringify(toSnapshot())
@@ -196,10 +219,11 @@ export async function flush() {
     .save(data)
     .catch((err) => {
       if (err instanceof StaleStateError) {
-        // never retry: a newer copy owns the state. Exiting lets the platform restart a fresh instance that
-        // loads the latest file (or, for a revision that no longer serves traffic, simply stop).
-        console.error(`[state] ${err.message}; this instance is stale and is exiting without saving`)
-        process.exit(1)
+        // don't exit: Cloud Run restarts crashed instances, and a restart would load and claim the file again.
+        // Stay up for the connections still draining here, but never write.
+        retired = true
+        console.error(`[state] ${err.message}; this instance stops saving`)
+        return
       }
       dirty = true
       console.error('[state] save failed', err)
