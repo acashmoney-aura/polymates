@@ -19,6 +19,7 @@ export function useEvent(slug: string) {
   const { leagueId } = useApp()
   const [event, setEvent] = useState<PMEvent | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const ids = useMemo(() => new Set(event?.markets.map((m) => m.id) ?? []), [event])
   const load = useCallback(() => {
     api<PMEvent>(`/api/events/${encodeURIComponent(slug)}${qs({ league: leagueId })}`).then(setEvent).catch((e) => setError(e.message))
   }, [slug, leagueId])
@@ -29,7 +30,8 @@ export function useEvent(slug: string) {
     const t = setInterval(load, 20_000)
     return () => clearInterval(t)
   }, [load])
-  useStream((e) => e.type === 'trade' || e.type === 'resolve' || e.type === 'league', load)
+  // only this event's markets change it; other trades in the league don't
+  useStream((e) => e.type === 'league' || ((e.type === 'trade' || e.type === 'resolve') && !!e.marketId && ids.has(e.marketId)), load, 1000)
   return { event, error, reload: load }
 }
 

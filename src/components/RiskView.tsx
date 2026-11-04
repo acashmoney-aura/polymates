@@ -3,7 +3,7 @@ import { api, cents, signedUsd, usd } from '../api'
 import { Tile } from '../pages/Lab'
 import { fmtNum, fmtPct } from '../quant'
 import { Link } from '../router'
-import { useApp, useStream } from '../store'
+import { isMine, useApp, useStream } from '../store'
 import { Heatmap } from './QuantCharts'
 import { Empty, Spinner } from './ui'
 
@@ -34,13 +34,13 @@ const name = (p: RiskPos) => (p.eventTitle && p.eventTitle !== p.title && p.titl
 
 /** Portfolio risk: exposure, scenarios, EV, correlation-weighted risk and Kelly sizing. */
 export function RiskView() {
-  const { leagueId } = useApp()
+  const { leagueId, user } = useApp()
   const [risk, setRisk] = useState<Risk | null>(null)
   const [edge, setEdge] = useState(5)
   const [half, setHalf] = useState(true)
   const load = () => { if (leagueId) api<Risk>(`/api/leagues/${leagueId}/risk`).then(setRisk).catch(() => {}) }
   useEffect(load, [leagueId])
-  useStream((e) => e.type === 'trade' || e.type === 'resolve', load)
+  useStream((e) => isMine(e, user?.id ?? ''), load, 5000)
   if (!risk) return <Spinner />
   if (!risk.positions.length) return <Empty title="No open positions">Risk shows up once you hold something. <Link to="/">Find a market</Link>.</Empty>
 

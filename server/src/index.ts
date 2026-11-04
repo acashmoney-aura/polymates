@@ -40,7 +40,11 @@ const CACHE_TTL: [RegExp, number][] = [
   [/^\/api\/categories$/, 60_000],
   [/^\/api\/perps\/assets$/, 2_000],
   [/^\/api\/quant\/(scanner|volatility)$/, 30_000],
+  // league-wide views every member's screen polls during a game
+  [/^\/api\/leagues\/[^/]+\/(leaderboard|leaderboard\/chart|biggest-wins)$/, 3_000],
+  [/^\/api\/leagues\/[^/]+\/activity$/, 2_000],
 ]
+const leagueOf = (req: Request) => (req.query.league ? String(req.query.league) : req.path.match(/^\/api\/leagues\/([^/]+)\//)?.[1])
 const CACHE_MAX = 500
 interface Cached { at: number; ttl: number; text: string; gz: Buffer | null }
 const responseCache = new Map<string, Cached>()
@@ -60,9 +64,10 @@ function sendJson(req: Request, res: Response, entry: Cached) {
 
 app.use((req, res, next) => {
   let ttl = req.method === 'GET' ? CACHE_TTL.find(([re]) => re.test(req.path))?.[1] : undefined
-  if (ttl && req.query.league) {
+  const lg = ttl ? leagueOf(req) : undefined
+  if (ttl && lg) {
     const auth = authenticate(req)
-    if (!auth || !db.members.has(memberKey(String(req.query.league), auth.user.id))) ttl = undefined
+    if (!auth || !db.members.has(memberKey(lg, auth.user.id))) ttl = undefined
   }
   const key = req.originalUrl
   if (ttl) {

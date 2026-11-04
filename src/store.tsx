@@ -111,13 +111,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     let es: EventSource | null = null
     let retry: ReturnType<typeof setTimeout>
     let pfTimer: ReturnType<typeof setTimeout> | null = null
+    const uid = user?.id ?? ''
     const connect = () => {
       es = new EventSource(`${API_URL}/api/stream?league=${activeLeague}&token=${encodeURIComponent(getToken() ?? '')}`)
       es.onmessage = (msg) => {
         const e = JSON.parse(msg.data) as StreamEvent
         listeners.current.forEach((fn) => fn(e))
         if (e.type === 'league') void refreshLeague()
-        if (['orders', 'trade', 'resolve'].includes(e.type)) {
+        // only your own orders, fills and resolutions change your portfolio; reacting to everyone's had
+        // every open tab refetching on each bot trade
+        if (isMine(e, uid)) {
           pfTimer ??= setTimeout(() => {
             pfTimer = null
             void refreshPortfolio()
@@ -135,7 +138,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       clearTimeout(retry)
       if (pfTimer) clearTimeout(pfTimer)
     }
-  }, [activeLeague, refreshLeague, refreshPortfolio])
+  }, [activeLeague, refreshLeague, refreshPortfolio, user?.id])
 
   const login = useCallback(async (t: string, u: User) => {
     setToken(t)
@@ -167,23 +170,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
 
-/** Re-run `fn` whenever a matching stream event arrives (debounced). */
-export function useStream(filter: (e: StreamEvent) => boolean, fn: () => void) {
+/** Whether a stream event changes `userId`'s own orders or holdings. */
+export function isMine(e: StreamEvent, userId: string) {
+  if (e.type === 'resolve') return true
+  if (e.type === 'orders' || e.type === 'portfolio') return e.userId === userId
+  if (e.type === 'trade') {
+    const t = e.data as { takerUserId?: string; makerUserId?: string | null } | undefined
+    return t?.takerUserId === userId || t?.makerUserId === userId
+  }
+  return false
+}
+
+/**
+ * Re-run `fn` when a matching stream event arrives, at most once per `minMs` (the last event in a burst
+ * always gets its run). Views that recompute league-wide data pass a few seconds: a busy league fires
+ * several trades a second.
+ */
+export function useStream(filter: (e: StreamEvent) => boolean, fn: () => void, minMs = 250) {
   const { subscribe } = useApp()
   const ref = useRef({ filter, fn })
   ref.current = { filter, fn }
   useEffect(() => {
     let t: ReturnType<typeof setTimeout> | null = null
+    let last = 0
     const off = subscribe((e) => {
-      if (!ref.current.filter(e)) return
-      t ??= setTimeout(() => {
+      if (!ref.current.filter(e) || t) return
+      // events that arrive while a run is scheduled ride along with it
+      t = setTimeout(() => {
         t = null
+        last = Date.now()
         ref.current.fn()
-      }, 250)
+      }, Math.max(250, last + minMs - Date.now()))
     })
     return () => {
       off()
       if (t) clearTimeout(t)
     }
-  }, [subscribe])
+  }, [subscribe, minMs])
 }

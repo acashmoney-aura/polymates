@@ -76,7 +76,7 @@ function Sidebar({ breaking }: { breaking: PMEvent[] }) {
   const load = () => leagueId ? api<LeaderRow[]>(`/api/leagues/${leagueId}/leaderboard`).then(setBoard).catch(() => {}) : setBoard(null)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { void load() }, [leagueId])
-  useStream((e) => e.type === 'trade' || e.type === 'resolve', () => void load())
+  useStream((e) => e.type === 'trade' || e.type === 'resolve', () => void load(), 5000)
   return (
     <aside className="home-side">
       <Link to="/?tag=breaking" className="side-title">Breaking news <Icon name="chevronRight" size={16} /></Link>

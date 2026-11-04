@@ -25,7 +25,8 @@ const Ctx = createContext<NotesState | null>(null)
 const useNotes = () => useContext(Ctx)!
 
 const MAX_NOTES = 60
-const POLL_MS = 4000
+// open positions re-mark live from pushed prices; this poll only feeds move and liquidation alerts
+const POLL_MS = 10_000
 /** a prediction position moving this much (share of cost) since the last alert raises a new one */
 const MOVE_STEP = 0.1
 /** perps move in leverage, so alert per 25% of margin */

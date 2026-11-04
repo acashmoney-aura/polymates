@@ -17,6 +17,9 @@ const MINUTES = Number(process.env.MINUTES ?? 5)
 const MODE = process.env.MODE ?? 'mirror'
 const PID = process.env.SERVER_PID
 const OUT = process.env.OUT
+// for a private Cloud Run service: `IAM_TOKEN=$(gcloud auth print-identity-token)`, sent in the header Cloud Run
+// reads instead of Authorization, which the app uses for its own sessions
+const IAM = process.env.IAM_TOKEN ? { 'x-serverless-authorization': `Bearer ${process.env.IAM_TOKEN}` } : {}
 const sfx = Date.now().toString(36).slice(-5)
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -45,7 +48,7 @@ async function call(route, method, path, body, token, { quiet = false } = {}) {
   try {
     const r = await fetch(B + path, {
       method,
-      headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
+      headers: { 'content-type': 'application/json', ...IAM, ...(token ? { authorization: `Bearer ${token}` } : {}) },
       body: body ? JSON.stringify(body) : undefined,
       signal: AbortSignal.timeout(30_000),
     })
@@ -177,11 +180,11 @@ const deadline = Date.now() + MINUTES * 60_000
 const running = () => Date.now() < deadline
 const streams = []
 
-function openStream(token) {
+function openStream(path) {
   const ctl = new AbortController()
   streams.push(ctl)
   let events = 0
-  fetch(`${B}/api/stream?league=${league.id}&token=${token}`, { signal: ctl.signal })
+  fetch(`${B}${path}`, { signal: ctl.signal, headers: IAM })
     .then(async (r) => {
       const reader = r.body.getReader()
       for (;;) {
@@ -198,10 +201,12 @@ const tradeStats = { market: 0, limit: 0, sells: 0, cancels: 0 }
 
 /** A person on the website: browse, open an event, sometimes trade, check portfolio and the leaderboard. */
 async function human(token) {
-  const sse = openStream(token)
+  // each browser tab holds the league stream and the live price stream
+  const sse = openStream(`/api/stream?league=${league.id}&token=${token}`)
+  openStream('/api/live')
   await sleep(rand(0, 5000))
   while (running()) {
-    await call('GET /events', 'GET', `/api/events?league=${league.id}&limit=20&tag=${pick(['trending', 'sports', 'politics', 'crypto'])}`, null, token)
+    await call('GET /events', 'GET', `/api/events?league=${league.id}&limit=24&compact=1&tag=${pick(['trending', 'sports', 'politics', 'crypto'])}`, null, token)
     const m = pick(markets)
     await Promise.all([
       call('GET /events/:slug', 'GET', `/api/events/${m.eventSlug}?league=${league.id}`, null, token),
@@ -258,12 +263,12 @@ async function restBot(token) {
   }
 }
 
-/** Event-loop lag: how long a trivial request takes while everything else is going on. */
+/** Event-loop lag: how long a trivial request takes while everything else is going on (/api: Cloud Run reserves /healthz). */
 const lag = []
 async function probe() {
   while (running()) {
     const t0 = performance.now()
-    try { await fetch(`${B}/healthz`, { signal: AbortSignal.timeout(30_000) }) } catch { /* counted as slow */ }
+    try { await fetch(`${B}/api`, { signal: AbortSignal.timeout(30_000), headers: IAM }) } catch { /* counted as slow */ }
     lag.push(performance.now() - t0)
     await sleep(1000)
   }

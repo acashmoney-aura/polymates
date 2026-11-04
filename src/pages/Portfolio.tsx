@@ -7,7 +7,7 @@ import { RiskView } from '../components/RiskView'
 import { Avatar, Empty, Img, ModeBadge, Spinner } from '../components/ui'
 import { Icon } from '../icons'
 import { Link, useTitle } from '../router'
-import { useApp, useStream } from '../store'
+import { isMine, useApp, useStream } from '../store'
 
 export function NeedLeague({ what }: { what: string }) {
   const { user, openAuth } = useApp()
@@ -39,7 +39,7 @@ export function Portfolio() {
     api<TradeRow[]>(`/api/leagues/${leagueId}/trades${qs({ mine: 1, limit: 200 })}`).then(setTrades).catch(() => {})
   }, [leagueId])
   useEffect(load, [load])
-  useStream((e) => e.type === 'orders' || e.type === 'trade', load)
+  useStream((e) => isMine(e, user?.id ?? ''), load)
   if (!user || !leagueId) return <NeedLeague what="portfolio" />
   if (!portfolio || !league) return <div className="wrap page"><Spinner /></div>
 

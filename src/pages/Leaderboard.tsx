@@ -66,7 +66,7 @@ export function Leaderboard() {
   }, [leagueId, period, sort, category, source])
   useEffect(load, [load])
   useEffect(() => { api<Category[]>('/api/categories').then(setCategories).catch(() => {}) }, [])
-  useStream((e) => e.type === 'trade' || e.type === 'resolve', load)
+  useStream((e) => e.type === 'trade' || e.type === 'resolve', load, 5000)
 
   const sources = useMemo(() => {
     const keys = new Set<string>()
