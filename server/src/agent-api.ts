@@ -106,7 +106,7 @@ export function serializeEvent(e: PMEvent, league?: League, opts: { full?: boole
 
 /** Per-event numbers the market list sorts and filters on; each looks at the event's open markets. */
 function eventStats(e: PMEvent) {
-  let move24h = 0, move1h = 0, range1h = 0, spread = Infinity, competitive = Infinity
+  let move24h = 0, move1h = 0, range1h = 0, move15m = 0, range15m = 0, spread = Infinity, competitive = Infinity
   for (const id of e.marketIds) {
     const m = catalog.markets.get(id)
     if (!m?.active) continue
@@ -115,15 +115,18 @@ function eventStats(e: PMEvent) {
     const live = p > 0.02 && p < 0.98
     if (live && m.volume24h > 25_000) move24h = Math.max(move24h, Math.abs(m.change24h ?? 0))
     const s = liveStats(m.id)
-    if (live && m.volume24h > 25_000) { move1h = Math.max(move1h, Math.abs(s.move1h)); range1h = Math.max(range1h, s.range1h) }
+    if (live && m.volume24h > 25_000) {
+      move1h = Math.max(move1h, Math.abs(s.move1h)); range1h = Math.max(range1h, s.range1h)
+      move15m = Math.max(move15m, Math.abs(s.move15m)); range15m = Math.max(range15m, s.range15m)
+    }
     if (m.bestBid !== null && m.bestAsk !== null && m.volume24h > 1000) spread = Math.min(spread, m.bestAsk - m.bestBid)
     if (m.volume24h > 1000) competitive = Math.min(competitive, Math.abs(p - 0.5))
   }
-  return { move24h, move1h, range1h, spread, competitive }
+  return { move24h, move1h, range1h, move15m, range15m, spread, competitive }
 }
 
 export const EVENT_SORTS = [
-  'trending', 'volume24h', 'volume', 'liquidity', 'new', 'ending', 'movers', 'movers1h', 'volatile', 'competitive', 'spread', 'breaking',
+  'trending', 'volume24h', 'volume', 'liquidity', 'new', 'ending', 'movers', 'movers1h', 'movers15m', 'volatile', 'volatile15m', 'competitive', 'spread', 'breaking',
 ] as const
 
 function sortEvents(list: PMEvent[], sort: string) {
@@ -140,6 +143,8 @@ function sortEvents(list: PMEvent[], sort: string) {
     movers: (a, b) => st(b).move24h - st(a).move24h || b.volume24h - a.volume24h,
     movers1h: (a, b) => st(b).move1h - st(a).move1h || b.volume24h - a.volume24h,
     volatile: (a, b) => st(b).range1h - st(a).range1h || st(b).move24h - st(a).move24h,
+    movers15m: (a, b) => st(b).move15m - st(a).move15m || st(b).move1h - st(a).move1h,
+    volatile15m: (a, b) => st(b).range15m - st(a).range15m || st(b).range1h - st(a).range1h,
     competitive: (a, b) => st(a).competitive - st(b).competitive || b.volume24h - a.volume24h,
     spread: (a, b) => st(a).spread - st(b).spread || b.volume24h - a.volume24h,
   }

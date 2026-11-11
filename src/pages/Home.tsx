@@ -128,7 +128,9 @@ const SORTS: { id: string; label: string; icon?: IconName; hint: string }[] = [
   { id: 'volume24h', label: '24h volume', icon: 'activity', hint: 'Most traded in the last 24 hours' },
   { id: 'movers', label: 'Biggest movers', icon: 'flame', hint: 'Largest 24h price change' },
   { id: 'volatile', label: 'Most volatile', icon: 'zap', hint: 'Widest high-low range in the last hour (live)' },
+  { id: 'volatile15m', label: 'Volatile 15m', icon: 'zap', hint: 'Widest high-low range in the last 15 minutes (live)' },
   { id: 'movers1h', label: 'Moving now', hint: 'Largest price change in the last hour (live)' },
+  { id: 'movers15m', label: 'Moving 15m', hint: 'Largest price change in the last 15 minutes (live)' },
   { id: 'competitive', label: 'Toss-ups', hint: 'Liquid markets closest to 50%' },
   { id: 'liquidity', label: 'Liquidity', hint: 'Deepest order books' },
   { id: 'volume', label: 'All-time volume', hint: 'Most traded ever' },
@@ -155,13 +157,18 @@ function metricFor(sort: string, e: PMEvent): string | null {
     if (!m?.change24h) return null
     return `${m.change24h >= 0 ? '↗' : '↘'} ${Math.abs(Math.round(m.change24h * 100))}pt 24h${open.length > 1 ? ` · ${m.title}` : ''}`
   }
-  if (sort === 'movers1h' || sort === 'volatile') {
-    const key = sort === 'volatile' ? 'range1h' : 'move1h'
+  const LIVE: Record<string, ['move1h' | 'range1h' | 'move15m' | 'range15m', string]> = {
+    movers1h: ['move1h', '1h'], volatile: ['range1h', '1h'], movers15m: ['move15m', '15m'], volatile15m: ['range15m', '15m'],
+  }
+  if (LIVE[sort]) {
+    const [key, win] = LIVE[sort]
+    const isRange = key.startsWith('range')
     const { m } = top((m) => Math.abs(m[key] ?? 0))
     const v = m?.[key] ?? 0
     if (!m || !v) return null
     const pts = Math.abs(v * 100).toFixed(1)
-    return sort === 'volatile' ? `⚡ ${pts}pt range 1h${open.length > 1 ? ` · ${m.title}` : ''}` : `${v >= 0 ? '↗' : '↘'} ${pts}pt 1h${open.length > 1 ? ` · ${m.title}` : ''}`
+    const tail = open.length > 1 ? ` · ${m.title}` : ''
+    return isRange ? `⚡ ${pts}pt range ${win}${tail}` : `${v >= 0 ? '↗' : '↘'} ${pts}pt ${win}${tail}`
   }
   if (sort === 'volume24h') return `${compactUsd(e.volume24h)} 24h`
   if (sort === 'liquidity') return `${compactUsd(e.liquidity)} liquidity`

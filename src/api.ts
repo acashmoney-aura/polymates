@@ -24,7 +24,7 @@ export interface Market {
   enabled: boolean; description: string
   sportsMarketType?: string | null; line?: number | null
   /** live: price change and high-low range over the last hour */
-  move1h?: number; range1h?: number
+  move1h?: number; range1h?: number; move15m?: number; range15m?: number
 }
 export interface PMEvent {
   id: string; slug: string; title: string; description?: string; resolutionSource?: string; image: string; icon: string

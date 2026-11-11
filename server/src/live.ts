@@ -6,7 +6,7 @@ import { catalog, displayPrice } from './polymarket.ts'
  * subscribed to the YES token of every active market in the catalog, and apply best bid/ask and last
  * trade updates to the catalog as they arrive. Displayed-price changes are batched once a second and
  * fanned out to browsers over SSE (/api/live). We also keep an hour of price ticks per market, which
- * is what "most volatile" and "1h move" sort on.
+ * is what the 1h and 15m "most volatile" and "moving now" sorts use.
  */
 
 const WS_URL = 'wss://ws-subscriptions-clob.polymarket.com/ws/market'
@@ -150,17 +150,29 @@ export function startLive() {
 
 const round = (p: number) => Math.round(p * 10_000) / 10_000
 
-/** Price move and high-low range over the last hour, from the live tick window. */
+/** Price move and high-low range over the last hour and the last 15 minutes, from the live tick window. */
 export function liveStats(marketId: string) {
   const arr = ticks.get(marketId)
-  if (!arr || arr.length < 2) return { move1h: 0, range1h: 0 }
-  let lo = 1
-  let hi = 0
-  for (const [, p] of arr) {
+  if (!arr || arr.length < 2) return { move1h: 0, range1h: 0, move15m: 0, range15m: 0 }
+  const last = arr[arr.length - 1]
+  const cut = last[0] - 15 * 60_000
+  let lo = 1, hi = 0, lo15 = 1, hi15 = 0
+  let first15: number | null = null
+  for (const [t, p] of arr) {
     lo = Math.min(lo, p)
     hi = Math.max(hi, p)
+    if (t >= cut) {
+      if (first15 === null) first15 = p
+      lo15 = Math.min(lo15, p)
+      hi15 = Math.max(hi15, p)
+    }
   }
-  return { move1h: round(arr[arr.length - 1][1] - arr[0][1]), range1h: round(hi - lo) }
+  return {
+    move1h: round(last[1] - arr[0][1]),
+    range1h: round(hi - lo),
+    move15m: round(last[1] - (first15 ?? last[1])),
+    range15m: first15 === null ? 0 : round(hi15 - lo15),
+  }
 }
 
 export function liveStatus() {

@@ -95,7 +95,7 @@ function build(userId: string) {
     {
       query: z.string().optional().describe('Text search over event and outcome titles'),
       category: z.string().optional().describe('trending | new | breaking | politics | sports | crypto | finance | tech | geopolitics | elections | pop-culture | economy | league'),
-      sort: z.enum(EVENT_SORTS).optional().describe('trending (default) | volume24h | volume | liquidity | new | ending | movers (biggest 24h move) | movers1h | volatile (widest 1h range, live) | competitive (closest to 50%) | spread (tightest)'),
+      sort: z.enum(EVENT_SORTS).optional().describe('trending (default) | volume24h | volume | liquidity | new | ending | movers (biggest 24h move) | movers1h (biggest 1h move, live) | movers15m (biggest 15m move, live) | volatile (widest 1h range, live) | volatile15m (widest 15m range, live) | competitive (closest to 50%) | spread (tightest)'),
       ends: z.enum(['1d', '1w', '1m']).optional().describe('Only events ending within this window'),
       band: z.enum(['longshot', 'tossup', 'favorite']).optional().describe('Only events with an outcome priced <15%, 35-65% or >85%'),
       kind: z.enum(['binary', 'multi']).optional(),
