@@ -96,6 +96,7 @@ export function Leaderboard() {
               Everyone started with {usd(league?.startingBalance ?? 0, 0)}. Orders from a member's bots, scripts and agents count as theirs.
             </div>
           )}
+          <Link to="/projector" className="btn lbx-projector"><Icon name="trophy" size={16} /> Projector view</Link>
         </div>
 
         <div className="lbx-tabs" role="tablist">
@@ -198,7 +199,7 @@ export function Leaderboard() {
   )
 }
 
-function MedalAvatar({ row, size }: { row: Pick<LeaderRow, 'rank' | 'displayName' | 'avatarHue' | 'avatarUrl'>; size: number }) {
+export function MedalAvatar({ row, size }: { row: Pick<LeaderRow, 'rank' | 'displayName' | 'avatarHue' | 'avatarUrl'>; size: number }) {
   const user = { displayName: row.displayName, avatarHue: row.avatarHue, avatarUrl: row.avatarUrl ?? undefined }
   return (
     <span className="lbx-av" style={{ width: size, height: size }}>
@@ -279,7 +280,11 @@ function WinsList({ wins, onPick }: { wins: BiggestWin[] | null; onPick: (userId
   )
 }
 
-function ProfileDrawer({ leagueId, userId, period, onClose }: { leagueId: string; userId: string; period: LeaderPeriod; onClose: () => void }) {
+export function ProfileDrawer({ leagueId, userId, period, onClose, live }: {
+  leagueId: string; userId: string; period: LeaderPeriod; onClose: () => void
+  /** portfolio value sampled every few seconds (projector view); shown instead of the hourly P&L chart */
+  live?: { t: number[]; values: (number | null)[] }
+}) {
   const [p, setP] = useState<MemberProfile | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [tab, setTab] = useState<'positions' | 'trades' | 'closed'>('positions')
@@ -315,7 +320,10 @@ function ProfileDrawer({ leagueId, userId, period, onClose }: { leagueId: string
               <b className={tone(p.pnl)}>{signedUsd(p.pnl)}</b>
               <span className={tone(p.pnlPct)}>{pctText(p.pnlPct)}</span>
             </div>
-            {s && s.values.length > 1 && (
+            {live && live.values.filter((v) => v !== null).length > 1 ? (
+              <LineChart t={live.t} series={[{ name: 'Value', color: p.pnl >= 0 ? '#00ae4b' : '#df0b10', values: live.values, area: true }]} height={140}
+                format={(v) => usd(v, 0)} formatTime={(x) => new Date(x * 1000).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} />
+            ) : s && s.values.length > 1 && (
               <LineChart t={p.chart.t} series={[{ name: 'P&L', color: p.pnl >= 0 ? '#00ae4b' : '#df0b10', values: s.values, area: true }]} height={140} zero format={signedCompact} />
             )}
             <div className="lbx-stats">

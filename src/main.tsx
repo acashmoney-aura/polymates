@@ -6,6 +6,7 @@ import './perps.css'
 import './elections.css'
 import './quant.css'
 import './leaderboard.css'
+import './projector.css'
 import App from './App.tsx'
 
 createRoot(document.getElementById('root')!).render(

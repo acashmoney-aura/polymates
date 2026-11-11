@@ -97,6 +97,7 @@ function UserMenu() {
           <button className="menu-item" onClick={go('/league')}><Icon name="settings" size={16} /> {league?.ownerId === user.id ? 'League settings' : 'League'}</button>
           <button className="menu-item" onClick={go('/lab')}><Icon name="zap" size={16} /> Quant Lab</button>
           <button className="menu-item" onClick={go('/developers')}><Icon name="bot" size={16} /> Agents & API</button>
+          {user?.siteAdmin && <button className="menu-item" onClick={go('/admin')}><Icon name="trending" size={16} /> Admin</button>}
           <div className="menu-sep" />
           <button className="menu-item" onClick={() => { logout(); setOpen(false) }}><Icon name="logout" size={16} /> Log out</button>
         </div>
@@ -188,7 +189,7 @@ export function MobileNav() {
     { to: '/search', label: 'Search', icon: 'search', match: (p) => p === '/search' },
     { to: '/leaderboard', label: 'Ranks', icon: 'trophy', match: (p) => p === '/leaderboard' },
     { to: '/portfolio', label: 'Portfolio', icon: 'wallet', match: (p) => p === '/portfolio' },
-    { to: '/more', label: 'More', icon: 'menu', match: (p) => ['/more', '/league', '/developers', '/activity', '/lab', '/elections', '/elections/midterms'].includes(p) || p.startsWith('/perps') },
+    { to: '/more', label: 'More', icon: 'menu', match: (p) => ['/more', '/league', '/developers', '/activity', '/admin', '/lab', '/elections', '/elections/midterms'].includes(p) || p.startsWith('/perps') },
   ]
   return (
     <nav className="mobile-nav">

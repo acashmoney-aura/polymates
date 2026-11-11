@@ -4,9 +4,11 @@ import { Header, MobileNav } from './components/Header'
 import { Modal, Spinner } from './components/ui'
 import { GoogleButton } from './components/GoogleButton'
 import { Icon, Logo } from './icons'
+import { AdminPage } from './pages/Admin'
 import { Developers } from './pages/Developers'
 import { Lab } from './pages/Lab'
 import { PerpAssetPage, PerpsPage } from './pages/Perps'
+import { Projector } from './pages/Projector'
 import { EventPage, SheetHost } from './pages/Event'
 import { Home, SearchPage } from './pages/Home'
 import { JoinPage, LeaguePage } from './pages/League'
@@ -87,9 +89,11 @@ function MorePage() {
     { to: '/activity', label: 'League activity', icon: 'activity' as const },
     { to: '/lab', label: 'Quant Lab', icon: 'zap' as const },
     { to: '/perps', label: 'Perps', icon: 'trending' as const },
+    { to: '/projector', label: 'Projector leaderboard', icon: 'trophy' as const },
     { to: '/elections', label: 'Elections', icon: 'globe' as const },
     { to: '/developers', label: 'Agents & API', icon: 'bot' as const },
     { to: '/?tag=league', label: 'League markets', icon: 'swap' as const },
+    ...(user?.siteAdmin ? [{ to: '/admin', label: 'Admin', icon: 'trending' as const }] : []),
   ]
   return (
     <div className="wrap page narrow">
@@ -136,11 +140,13 @@ function Routes() {
   switch (path) {
     case '/portfolio': return <Portfolio />
     case '/leaderboard': return <Leaderboard />
+    case '/projector': return <Projector />
     case '/league': return <LeaguePage />
     case '/developers': return <Developers />
     case '/activity': return <ActivityPage />
     case '/search': return <SearchPage />
     case '/more': return <MorePage />
+    case '/admin': return <AdminPage />
     case '/lab': return <Lab />
     case '/perps': return <PerpsPage />
     case '/elections': return <Suspense fallback={<div className="wrap page center"><Spinner /></div>}><ElectionsPage /></Suspense>

@@ -6,7 +6,7 @@ import { agentApi } from './agent-api.ts'
 import { eventCurveFor, microstructure, portfolioRisk, volatilityRanking, volCone } from './analytics.ts'
 import { runBacktest, runSweep, scanner, STRATEGY_TEMPLATES, sweepableParams } from './backtest.ts'
 import { HOUSE_USER, rebuildBooks, settleMarket, sweepMirrorOrders } from './engine.ts'
-import { recordEquitySnapshots, registerPnlSource } from './leaderboard.ts'
+import { LIVE_EQUITY_INTERVAL_MS, recordEquitySnapshots, registerPnlSource, sampleLiveEquity } from './leaderboard.ts'
 import { startHouse } from './house.ts'
 import { leagueAdmin, publicUser } from './leagues.ts'
 import { handleMcp } from './mcp.ts'
@@ -14,7 +14,8 @@ import { live, liveStatus, resubscribe, startLive } from './live.ts'
 import { getPerpAsset, listPerpAssets, perpPnlSource, perpsApi, perpTicks, setTestPrice, startPerps } from './perps.ts'
 import { electionsOverview } from './elections.ts'
 import { catalog, marketById, pmHistory, refreshMarkets, syncCatalog } from './polymarket.ts'
-import { createScript, deleteScript, listScripts, scriptLogsFor, updateScript } from './script-api.ts'
+import { clientIp, openStream, rateLimitStats, take } from './ratelimit.ts'
+import { createScript,deleteScript, listScripts, scriptLogsFor, updateScript } from './script-api.ts'
 import { EXAMPLE_SCRIPT, runScript, startScheduler } from './scripts.ts'
 import { db, flush, initState, markDirty, memberKey } from './state.ts'
 import type { OrderSource, User } from './types.ts'
@@ -24,7 +25,49 @@ import {
 
 const app = express()
 app.set('trust proxy', true)
-app.use(cors({ origin: true, credentials: false, exposedHeaders: ['Mcp-Session-Id'] }))
+app.use(cors({ origin: true, credentials: false, exposedHeaders: ['Mcp-Session-Id', 'Retry-After'] }))
+
+/*
+ * Rate limits (ratelimit.ts) run before the body is parsed, so a flood is turned away as cheaply as possible.
+ * Order: per account (or per IP when anonymous), then the global cap, then the stricter trade and auth buckets.
+ */
+const AUTH_ROUTE = /^\/api\/auth\/(signup|login|google)$/
+const TRADE_ROUTE = /^\/(mcp$|api\/(leagues\/[^/]+\/(orders|perps)|orders\/|scripts\/[^/]+\/run$|backtest))/
+app.use((req, res, next) => {
+  if (req.method === 'OPTIONS') return next()
+  const ip = clientIp(req)
+  const auth = authenticate(req)
+  const limited = (wait: number, msg: string) => {
+    res.set('retry-after', String(wait)).status(429).json({ error: msg, retryAfterSec: wait })
+  }
+  // per-caller first: requests a caller has already been refused must not use up the shared global budget,
+  // or one person hammering would get everyone else turned away
+  let wait = auth ? take('user', auth.user.id) : take('ip', ip)
+  if (wait) return limited(wait, `Too many requests. Slow down and retry in ${wait}s.`)
+  wait = take('global', 'all')
+  if (wait) return limited(wait, 'The server is busy. Try again in a moment.')
+  if (req.method !== 'GET' && TRADE_ROUTE.test(req.path)) {
+    wait = take('trade', auth?.user.id ?? ip)
+    if (wait) return limited(wait, `Too many orders. Retry in ${wait}s.`)
+  }
+  if (req.method === 'POST' && AUTH_ROUTE.test(req.path)) {
+    wait = take('authGlobal', 'all') || take('auth', ip)
+    if (wait) return limited(wait, `Too many sign-in attempts. Retry in ${wait}s.`)
+  }
+  next()
+})
+
+/** Holds a stream slot for this request until it closes; sends 429 and returns false when a cap is full. */
+function claimStream(req: Request, res: Response, userId: string | null) {
+  const release = openStream(userId, clientIp(req))
+  if (!release) {
+    res.set('retry-after', '10').status(429).json({ error: 'Too many open live connections. Close some tabs.' })
+    return false
+  }
+  req.on('close', release)
+  return true
+}
+
 app.use(express.json({ limit: '256kb' }))
 /*
  * Shared read responses are cached for a few seconds and gzipped once: forty people on the home page ask for
@@ -42,6 +85,7 @@ const CACHE_TTL: [RegExp, number][] = [
   [/^\/api\/quant\/(scanner|volatility)$/, 30_000],
   // league-wide views every member's screen polls during a game
   [/^\/api\/leagues\/[^/]+\/(leaderboard|leaderboard\/chart|biggest-wins)$/, 3_000],
+  [/^\/api\/leagues\/[^/]+\/leaderboard\/live$/, 5_000],
   [/^\/api\/leagues\/[^/]+\/activity$/, 2_000],
 ]
 const leagueOf = (req: Request) => (req.query.league ? String(req.query.league) : req.path.match(/^\/api\/leagues\/([^/]+)\//)?.[1])
@@ -228,7 +272,7 @@ app.post('/api/auth/logout', wrap((req) => {
 
 app.get('/api/me', wrap((req) => {
   const { user } = requireAuth(req)
-  return { user: { ...publicUser(user), google: Boolean(user.googleSub), hasPassword: Boolean(user.passHash) }, leagues: agentApi(user.id, 'web').listLeagues() }
+  return { user: { ...publicUser(user), google: Boolean(user.googleSub), hasPassword: Boolean(user.passHash), ...(isSiteAdmin(user) ? { siteAdmin: true } : {}) }, leagues: agentApi(user.id, 'web').listLeagues() }
 }))
 
 app.get('/api/me/api-keys', wrap((req) => {
@@ -254,6 +298,83 @@ app.delete('/api/me/api-keys/:id', wrap((req) => {
   db.apiKeys.delete(k!.id)
   markDirty()
   return { ok: true }
+}))
+
+/* ---------------- site admin ---------------- */
+
+/** Usernames allowed to see app-wide stats, from ADMIN_USERS (comma or space separated). */
+const SITE_ADMINS = new Set((process.env.ADMIN_USERS ?? '').toLowerCase().split(/[\s,]+/).filter(Boolean))
+const isSiteAdmin = (u: User) => SITE_ADMINS.has(u.username)
+
+app.get('/api/admin/stats', wrap((req) => {
+  const auth = authenticate(req)
+  // 404 rather than 403 so the endpoint doesn't advertise itself; website sessions only, not API keys
+  if (!auth || auth.source !== 'web' || !isSiteAdmin(auth.user)) fail(404, 'Not found')
+  const t = now()
+  const DAY = 86_400_000
+  const users = [...db.users.values()].filter((u) => u.id !== HOUSE_USER)
+
+  // last time each user did anything we record: placed an order, traded, signed in, or used an API key
+  const lastSeen = new Map<string, number>()
+  const seen = (uid: string | null | undefined, ts: number) => { if (uid && ts > (lastSeen.get(uid) ?? 0)) lastSeen.set(uid, ts) }
+  for (const o of db.orders.values()) seen(o.userId, o.createdAt)
+  for (const s of db.sessions.values()) seen(s.userId, s.createdAt)
+  for (const k of db.apiKeys.values()) if (k.lastUsedAt) seen(k.userId, k.lastUsedAt)
+  const tradeCount = new Map<string, number>()
+  for (const tr of db.trades) {
+    seen(tr.takerUserId, tr.ts)
+    tradeCount.set(tr.takerUserId, (tradeCount.get(tr.takerUserId) ?? 0) + 1)
+    if (tr.makerUserId && tr.makerUserId !== HOUSE_USER) {
+      seen(tr.makerUserId, tr.ts)
+      tradeCount.set(tr.makerUserId, (tradeCount.get(tr.makerUserId) ?? 0) + 1)
+    }
+  }
+  const members = [...db.members.values()].filter((m) => m.userId !== HOUSE_USER)
+  const activeWithin = (ms: number) => users.filter((u) => t - (lastSeen.get(u.id) ?? 0) < ms).length
+  const newWithin = (ms: number) => users.filter((u) => t - u.createdAt < ms).length
+
+  // signups per day for the last 30 days, oldest first (UTC days)
+  const today = Math.floor(t / DAY)
+  const signups = Array.from({ length: 30 }, (_, i) => ({ day: (today - 29 + i) * DAY, count: 0 }))
+  for (const u of users) {
+    const i = Math.floor(u.createdAt / DAY) - (today - 29)
+    if (i >= 0 && i < 30) signups[i].count++
+  }
+
+  return {
+    generatedAt: t,
+    users: {
+      total: users.length,
+      google: users.filter((u) => u.googleSub).length,
+      password: users.filter((u) => u.passHash).length,
+      new1d: newWithin(DAY), new7d: newWithin(7 * DAY), new30d: newWithin(30 * DAY),
+      active1d: activeWithin(DAY), active7d: activeWithin(7 * DAY), active30d: activeWithin(30 * DAY),
+    },
+    activity: {
+      leagues: db.leagues.size,
+      orders: db.orders.size,
+      openOrders: [...db.orders.values()].filter((o) => o.status === 'open').length,
+      trades: db.trades.length,
+      trades1d: db.trades.filter((tr) => t - tr.ts < DAY).length,
+      apiKeys: db.apiKeys.size,
+      scripts: db.scripts.size,
+    },
+    signups,
+    leagues: [...db.leagues.values()].map((l) => ({
+      id: l.id, name: l.name, mode: l.mode, createdAt: l.createdAt,
+      owner: db.users.get(l.ownerId)?.username ?? null,
+      members: members.filter((m) => m.leagueId === l.id).length,
+      trades: db.trades.filter((tr) => tr.leagueId === l.id).length,
+    })).sort((a, b) => b.members - a.members),
+    userList: users.map((u) => ({
+      ...publicUser(u),
+      signIn: u.googleSub && u.passHash ? 'both' : u.googleSub ? 'google' : 'password',
+      leagues: members.filter((m) => m.userId === u.id).length,
+      trades: tradeCount.get(u.id) ?? 0,
+      lastSeen: lastSeen.get(u.id) ?? null,
+    })).sort((a, b) => b.createdAt - a.createdAt),
+    server: { uptimeSec: Math.round(process.uptime()), memoryMb: Math.round(process.memoryUsage().rss / 1e6), live: liveStatus(), rateLimits: rateLimitStats() },
+  }
 }))
 
 /* ---------------- leagues ---------------- */
@@ -282,6 +403,8 @@ app.get('/api/leagues/:id/leaderboard/chart', wrap((req) => agentApi(requireAuth
   period: req.query.period, sort: req.query.sort, category: str(req.query.category),
   users: str(req.query.users)?.split(','), limit: Number(req.query.limit) || undefined,
 })))
+app.get('/api/leagues/:id/leaderboard/live', wrap((req) =>
+  agentApi(requireAuth(req).user.id, 'web').getLiveEquity(String(req.params.id), { minutes: Number(req.query.minutes) || undefined })))
 app.get('/api/leagues/:id/leaderboard/sources', wrap((req) => agentApi(requireAuth(req).user.id, 'web').leaderboardSources()))
 app.get('/api/leagues/:id/biggest-wins', wrap((req) => agentApi(requireAuth(req).user.id, 'web').getBiggestWins(String(req.params.id), {
   period: req.query.period, category: str(req.query.category), limit: Number(req.query.limit) || undefined,
@@ -444,6 +567,7 @@ app.get('/api/markets/:mid/history', wrap(async (req) => {
 
 /** Public Polymarket price ticks: one batch a second of [marketId, price, bestBid, bestAsk, lastTrade]. */
 app.get('/api/live', (req, res) => {
+  if (!claimStream(req, res, authenticate(req)?.user.id ?? null)) return
   res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive', 'x-accel-buffering': 'no' })
   res.write(': connected\n\n')
   const onPrices = (batch: unknown) => res.write(`data: ${JSON.stringify(batch)}\n\n`)
@@ -467,6 +591,7 @@ app.get('/api/stream', (req, res) => {
     res.status(401).end()
     return
   }
+  if (!claimStream(req, res, auth.user.id)) return
   res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive', 'x-accel-buffering': 'no' })
   res.write(': connected\n\n')
   const pending = new Map<string, BusEvent>()
@@ -610,6 +735,8 @@ async function main() {
   every(60_000, resolveMarkets)
   every(8_000, sweepMirrorOrders)
   every(10 * 60_000, async () => recordEquitySnapshots())
+  sampleLiveEquity()
+  every(LIVE_EQUITY_INTERVAL_MS, async () => sampleLiveEquity())
   startHouse()
   startScheduler()
   registerPnlSource(perpPnlSource)

@@ -15,8 +15,10 @@ export function useWidth<T extends HTMLElement>() {
 export interface LineSeries { name: string; color: string; values: (number | null)[]; area?: boolean; dashed?: boolean }
 
 /** General-purpose time series chart with auto-scaled y axis, area gradient and hover readout. */
-export function LineChart({ t, series, height = 220, format = (v) => v.toFixed(2), zero = false, yMin, yMax }: {
+export function LineChart({ t, series, height = 220, format = (v) => v.toFixed(2), zero = false, yMin, yMax, formatTime }: {
   t: number[]
+  /** x-axis label for a unix-seconds timestamp; default is hour of day (or date for long spans) */
+  formatTime?: (s: number) => string
   series: LineSeries[]
   height?: number
   format?: (v: number) => string
@@ -42,7 +44,7 @@ export function LineChart({ t, series, height = 220, format = (v) => v.toFixed(2
   const y = (v: number) => padT + (1 - (v - lo) / (hi - lo)) * ih
   const ticks = Array.from({ length: 5 }, (_, i) => lo + ((hi - lo) * i) / 4)
   const span = (t[n - 1] ?? 0) - (t[0] ?? 0)
-  const fmtT = (s: number) => new Date(s * 1000).toLocaleDateString('en-US', span < 3 * 86400 ? { hour: 'numeric' } : { month: 'short', day: 'numeric' })
+  const fmtT = formatTime ?? ((s: number) => new Date(s * 1000).toLocaleDateString('en-US', span < 3 * 86400 ? { hour: 'numeric' } : { month: 'short', day: 'numeric' }))
   const path = (vs: (number | null)[]) => {
     let d = '', pen = false
     vs.forEach((v, i) => {

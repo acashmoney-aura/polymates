@@ -32,3 +32,6 @@ film/stills/
 film/*.mp4
 film/*.wav
 film/*-sheet.png
+
+# local API state when the server is started from the repo root (launch.json)
+/data

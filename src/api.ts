@@ -4,7 +4,7 @@ export type Outcome = 'yes' | 'no'
 export type Side = 'buy' | 'sell'
 export type LeagueMode = 'mirror' | 'exchange'
 
-export interface User { id: string; username: string; displayName: string; avatarHue: number; avatarUrl?: string; createdAt: number; google?: boolean; hasPassword?: boolean }
+export interface User { id: string; username: string; displayName: string; avatarHue: number; avatarUrl?: string; createdAt: number; google?: boolean; hasPassword?: boolean; siteAdmin?: boolean }
 export type Role = 'owner' | 'admin' | 'member'
 export interface LeagueSummary {
   id: string; name: string; mode: LeagueMode; role: Role; cash: number
@@ -76,6 +76,10 @@ export interface BiggestWin extends ClosedTrade {
 export interface LeaderChart {
   period: LeaderPeriod; t: number[]
   series: { userId: string; username: string; displayName: string; avatarHue: number; avatarUrl?: string; values: number[] }[]
+}
+export interface LiveEquity {
+  minutes: number; intervalSec: number; startingBalance: number; t: number[]
+  series: { userId: string; username: string; displayName: string; avatarHue: number; avatarUrl?: string; values: (number | null)[] }[]
 }
 export interface MemberProfile extends Omit<LeaderRow, 'positions' | 'trades'> {
   tradeCount: number; joinedAt: number; startingBalance: number; allTimePnl: number; realized: number; positionsValue: number

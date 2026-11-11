@@ -828,3 +828,30 @@ textarea { width: 100%; resize: vertical; }
 @media (max-width: 640px) {
   .np-panel { position: fixed; left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); top: calc(64px + env(safe-area-inset-top, 0px)); width: auto; }
 }
+
+/* admin stats (/admin) */
+.admin { display: flex; flex-direction: column; gap: 16px; }
+.admin-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.admin-head h1 { margin: 0; font-size: 28px; line-height: 36px; }
+.admin-refresh { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; }
+.admin-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+.admin-tile { padding: 16px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.admin-tile b { font-size: 28px; line-height: 34px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.admin-sub { color: var(--text-3); }
+.admin-card { padding: 16px; min-width: 0; }
+.admin-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.admin-card-head h3 { margin: 0; font-size: 16px; line-height: 24px; }
+.admin-bars { display: flex; align-items: flex-end; gap: 3px; height: 96px; }
+.admin-bar { flex: 1; height: 100%; display: flex; align-items: flex-end; }
+.admin-bar i { display: block; width: 100%; min-height: 2px; background: var(--brand); border-radius: 2px 2px 0 0; }
+.admin-bar i.zero { background: var(--surface-3); }
+.admin-bar:hover i { background: var(--brand-hover); }
+.admin-axis { display: flex; justify-content: space-between; margin-top: 6px; }
+.admin-scroll { overflow-x: auto; margin: 0 -16px; padding: 0 16px; }
+.admin-table { width: 100%; border-collapse: collapse; font-size: 14px; white-space: nowrap; }
+.admin-table th { text-align: left; font-weight: 500; color: var(--text-3); font-size: 13px; padding: 0 12px 8px 0; border-bottom: 1px solid var(--border); }
+.admin-table td { padding: 10px 12px 10px 0; border-bottom: 1px solid var(--border); }
+.admin-table tr:last-child td { border-bottom: 0; }
+.admin-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.admin-user { display: inline-flex; align-items: center; gap: 8px; }
+@media (max-width: 640px) { .admin-tiles { grid-template-columns: 1fr 1fr; } .admin-tile b { font-size: 22px; line-height: 28px; } }

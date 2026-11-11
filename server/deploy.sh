@@ -17,6 +17,8 @@ PROJECT="${PROJECT:-$(gcloud config get-value project 2>/dev/null)}"
 REGION="${REGION:-us-east1}"
 SERVICE="${SERVICE:-polymates-api}"
 BUCKET="${BUCKET:-polymates-state-${PROJECT}}"
+# Usernames that can open /admin (space separated; commas would split gcloud's env list)
+ADMIN_USERS="${ADMIN_USERS:-akeboss}"
 
 cd "$(dirname "$0")"
 
@@ -34,7 +36,7 @@ gcloud run deploy "$SERVICE" \
   --no-cpu-throttling --cpu "${CPU:-2}" --memory 2Gi \
   --concurrency 1000 \
   --timeout 3600 \
-  --set-env-vars "STATE_BUCKET=${BUCKET}${GOOGLE_CLIENT_ID:+,GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}}" \
+  --set-env-vars "STATE_BUCKET=${BUCKET},ADMIN_USERS=${ADMIN_USERS}${GOOGLE_CLIENT_ID:+,GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}}" \
   --quiet
 
 URL="$(gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" --format 'value(status.url)')"

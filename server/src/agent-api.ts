@@ -4,7 +4,7 @@ import {
 } from './engine.ts'
 import { touchMarket } from './house.ts'
 import {
-  biggestWins, leaderboard, leaderboardChart, memberProfile, parsePeriod, parseSort, pnlSources, type LeaderboardOptions,
+  biggestWins, leaderboard, leaderboardChart, liveEquityChart, memberProfile, parsePeriod, parseSort, pnlSources, type LeaderboardOptions,
 } from './leaderboard.ts'
 import { liveStats } from './live.ts'
 import { catalog, CATEGORIES, displayPrice, eventBySlug, marketById, pmBook, pmHistory } from './polymarket.ts'
@@ -394,6 +394,11 @@ export function agentApi(userId: string, source: OrderSource) {
       return leaderboardChart(league(leagueId).id, {
         period: parsePeriod(opts.period), sort: parseSort(opts.sort), category: opts.category, users: opts.users, limit: opts.limit,
       })
+    },
+
+    /** every member's portfolio value over the last N minutes, sampled every 15s (live marks) */
+    getLiveEquity(leagueId?: string, opts: { minutes?: number } = {}) {
+      return liveEquityChart(league(leagueId).id, opts.minutes)
     },
 
     /** a member's stats, open positions, recent trades and closed positions */

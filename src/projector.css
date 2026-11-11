@@ -1,0 +1,128 @@
+/* Projector view (/projector): a full-screen league leaderboard for a big screen. Type is sized for the back row. */
+.pj {
+  position: fixed; inset: 0; z-index: 150; background: var(--bg); color: var(--text);
+  display: flex; flex-direction: column; gap: 16px; padding: 24px 32px 24px; overflow: hidden;
+  --pj-row: 68px;
+}
+.pj.idle { cursor: none; }
+.pj .pos { color: var(--yes-accent); }
+.pj .neg { color: var(--no-text); }
+
+.pj-top { display: flex; align-items: center; gap: 32px; min-width: 0; }
+.pj-title { display: flex; align-items: center; gap: 16px; min-width: 0; flex: 1; }
+.pj-title h1 { margin: 0; font-size: 40px; line-height: 48px; font-weight: 700; letter-spacing: -0.01em; }
+.pj-live { display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px; border-radius: 999px; background: var(--no-tint); color: var(--no-text); font-weight: 700; font-size: 15px; text-transform: uppercase; letter-spacing: 0.06em; flex-shrink: 0; }
+.pj-live i { width: 10px; height: 10px; border-radius: 50%; background: var(--no-text); animation: pj-pulse 1.6s ease-in-out infinite; }
+@keyframes pj-pulse { 50% { opacity: 0.25; } }
+.pj-kpis { display: flex; gap: 36px; margin: 0; }
+.pj-kpis div { display: flex; flex-direction: column; min-width: 0; max-width: 260px; }
+.pj-kpis dt { color: var(--text-3); font-size: 14px; line-height: 20px; }
+.pj-kpis dd { margin: 0; font-size: 28px; line-height: 36px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.pj-clock { font-size: 28px; line-height: 36px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text-2); }
+
+.pj-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; transition: opacity 300ms; }
+.pj.idle .pj-controls { opacity: 0; pointer-events: none; }
+.pj-hint { margin-left: auto; font-size: 14px; }
+
+.pj-body { flex: 1; min-height: 0; display: flex; gap: 24px; }
+.pj-board { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--surface); border-radius: var(--r-xl); box-shadow: var(--shadow-panel); overflow: hidden; }
+.pj-list { position: relative; list-style: none; margin: 0; padding: 0; overflow: hidden; flex-shrink: 0; height: calc(var(--n) * var(--pj-row)); }
+.pj-board { overflow-y: auto; }
+.pj-empty { padding: 32px; font-size: 20px; }
+
+.pj-row { display: flex; align-items: center; gap: 0; padding: 0 20px; height: var(--pj-row); }
+.pj-head { height: 48px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface); z-index: 2; color: var(--text-3); font-size: 14px; font-weight: 500; flex-shrink: 0; }
+.pj-item { position: absolute; left: 0; right: 0; top: 0; transform: translateY(calc(var(--i) * var(--pj-row))); border-bottom: 1px solid var(--border); transition: transform 700ms cubic-bezier(0.2, 0.8, 0.2, 1), background-color 150ms; }
+.pj-item:hover { background: var(--hover-overlay); }
+.pj-hit { position: absolute; inset: 0; z-index: 1; background: none; border: 0; cursor: pointer; border-radius: 0; }
+.pj-hit:focus-visible { box-shadow: inset 0 0 0 2px var(--brand); }
+.pj-top1 { box-shadow: inset 4px 0 0 #f5c542; }
+.pj-top2 { box-shadow: inset 4px 0 0 #c0c7d1; }
+.pj-top3 { box-shadow: inset 4px 0 0 #d08a4c; }
+
+.pj-rank { width: 64px; flex-shrink: 0; font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; display: flex; align-items: baseline; gap: 4px; }
+.pj-head .pj-rank { font-size: 14px; font-weight: 500; }
+.pj-rank small { font-size: 13px; font-weight: 700; animation: fade 200ms; }
+.pj-name { flex: 1; min-width: 180px; display: flex; align-items: center; gap: 12px; }
+.pj-who { display: flex; flex-direction: column; min-width: 0; }
+.pj-who b { font-size: 20px; line-height: 26px; font-weight: 600; }
+.pj-who small { font-size: 14px; line-height: 20px; }
+.pj-sparkcol { width: 136px; flex-shrink: 0; padding-right: 16px; }
+.pj-spark { display: block; width: 120px; height: 32px; }
+
+.pj-num { width: 104px; flex-shrink: 0; text-align: right; font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--text-2); }
+.pj-num.active { color: var(--text); }
+.pj-item .pj-num.active { font-size: 22px; font-weight: 700; }
+.pj-sort { background: none; border: 0; padding: 0; font: inherit; font-size: 14px; font-weight: 500; color: var(--text-3); cursor: pointer; height: 100%; }
+.pj-sort:hover { color: var(--text); }
+.pj-sort.active { color: var(--text); font-weight: 700; }
+
+.pj-side { width: clamp(360px, 30vw, 560px); flex-shrink: 0; display: flex; flex-direction: column; gap: 16px; min-height: 0; }
+.pj-card { background: var(--surface); border-radius: var(--r-xl); box-shadow: var(--shadow-panel); padding: 20px; min-width: 0; }
+.pj-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.pj-card-head h2 { margin: 0; font-size: 20px; line-height: 28px; }
+.pj-card-head span { font-size: 14px; }
+.pj-collecting { height: 300px; display: grid; place-items: center; text-align: center; padding: 0 24px; font-size: 16px; }
+.pj-legend { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 4px; }
+.pj-legend button { width: 100%; display: flex; align-items: center; gap: 10px; background: none; border: 0; color: inherit; font: inherit; font-size: 16px; padding: 6px 8px; border-radius: var(--r-sm); cursor: pointer; text-align: left; }
+.pj-legend button:hover { background: var(--hover-overlay); }
+.pj-legend i { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+.pj-legend span { flex: 1; min-width: 0; }
+.pj-legend b { font-variant-numeric: tabular-nums; }
+.pj-feed { flex: 1; min-height: 0; overflow: hidden; }
+.pj-feed ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.pj-feed li { display: flex; align-items: center; gap: 10px; font-size: 16px; line-height: 22px; animation: fade 300ms; }
+.pj-feed-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.pj-feed time { font-size: 14px; flex-shrink: 0; }
+
+/* narrower screens and 1280px projectors: drop secondary columns (never the one being sorted) */
+@media (max-width: 1700px) { .pj-c-winRate:not(.active), .pj-c-volume:not(.active) { display: none; } }
+@media (max-width: 1440px) {
+  .pj-c-value:not(.active), .pj-c-dd:not(.active), .pj-c-move:not(.active) { display: none; }
+  .pj-num { width: 96px; }
+  .pj-sparkcol { width: 112px; } .pj-spark { width: 96px; }
+}
+/* 720p projectors: shorter rows so more of the field fits */
+@media (max-height: 820px) {
+  .pj { --pj-row: 52px; padding: 16px 24px; gap: 12px; }
+  .pj-title h1 { font-size: 30px; line-height: 38px; }
+  .pj-kpis dd, .pj-clock { font-size: 22px; line-height: 28px; }
+  .pj-kpis dt { font-size: 13px; line-height: 18px; }
+  .pj-who b { font-size: 17px; line-height: 22px; }
+  .pj-who small { font-size: 13px; line-height: 16px; }
+  .pj-num { font-size: 17px; }
+  .pj-item .pj-num.active { font-size: 19px; }
+  .pj-rank { font-size: 20px; width: 52px; }
+  .pj-head { height: 40px; }
+  .pj-card { padding: 16px; }
+  .pj-collecting { height: 190px; }
+  .pj-legend button { font-size: 14px; padding: 3px 8px; }
+  .pj-feed li { font-size: 14px; line-height: 20px; }
+}
+@media (max-width: 1180px) {
+  .pj { overflow-y: auto; }
+  .pj-body { flex-direction: column; }
+  .pj-board { flex: none; max-height: none; }
+  .pj-side { width: auto; }
+  .pj-kpis { gap: 20px; }
+  .pj-hint { display: none; }
+}
+@media (max-width: 760px) {
+  .pj { padding: 16px; --pj-row: 60px; }
+  .pj-top { flex-wrap: wrap; gap: 8px 12px; }
+  .pj-title { flex-basis: 100%; }
+  .pj-kpis { gap: 16px; }
+  .pj-kpis div:last-child { display: none; }
+  .pj-name { min-width: 0; }
+  .pj-who small { display: none; }
+  .pj-title h1 { font-size: 28px; line-height: 36px; }
+  .pj-kpis dd, .pj-clock { font-size: 20px; line-height: 28px; }
+  .pj-clock { display: none; }
+  .pj-row { padding: 0 12px; }
+  .pj-sparkcol, .pj-c-move:not(.active), .pj-c-vol:not(.active), .pj-c-trades:not(.active), .pj-c-return:not(.active) { display: none; }
+  .pj-num { width: 76px; font-size: 16px; }
+  .pj-item .pj-num.active { font-size: 18px; }
+  .pj-who b { font-size: 16px; }
+  .pj-rank { width: 40px; font-size: 18px; }
+}
+@media (prefers-reduced-motion: reduce) { .pj-item { transition: none; } .pj-live i { animation: none; } }

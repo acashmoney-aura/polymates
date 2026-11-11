@@ -532,3 +532,79 @@ export function recordEquitySnapshots() {
   for (const k of db.equity.keys()) if (!db.members.has(k)) db.equity.delete(k)
   markDirty()
 }
+
+/* ---------------- live equity (projector view) ---------------- */
+
+/*
+ * Every member's portfolio value (cash + positions at live marks + perps), sampled every 15 seconds and kept in
+ * memory for a few hours. The equity snapshots above are hourly, which is too coarse for a one-hour game; this
+ * series is what the projector view charts and computes volatility and drawdown from. It starts empty after a
+ * restart, so don't redeploy during a game.
+ */
+const LIVE_SAMPLE_MS = 15_000
+const LIVE_KEEP_MS = 4 * HOUR
+/** leagues bigger than this are skipped: sampling is O(members x positions) */
+const LIVE_MAX_MEMBERS = 300
+interface LiveBuffer { t: number[]; v: Map<string, (number | null)[]> }
+const liveEquity = new Map<string, LiveBuffer>()
+export const LIVE_EQUITY_INTERVAL_MS = LIVE_SAMPLE_MS
+
+export function sampleLiveEquity(t = now()) {
+  const byLeague = new Map<string, string[]>()
+  for (const m of db.members.values()) {
+    if (m.userId === HOUSE_USER) continue
+    const list = byLeague.get(m.leagueId)
+    if (list) list.push(m.userId)
+    else byLeague.set(m.leagueId, [m.userId])
+  }
+  for (const [leagueId, users] of byLeague) {
+    if (users.length > LIVE_MAX_MEMBERS || !db.leagues.has(leagueId)) continue
+    let buf = liveEquity.get(leagueId)
+    if (!buf) liveEquity.set(leagueId, (buf = { t: [], v: new Map() }))
+    const n = buf.t.length
+    buf.t.push(t)
+    for (const userId of users) {
+      let arr = buf.v.get(userId)
+      if (!arr) buf.v.set(userId, (arr = new Array<number | null>(n).fill(null)))
+      let value: number | null = null
+      try { value = portfolio(leagueId, userId).value } catch { /* member left mid-sample */ }
+      arr.push(value)
+    }
+    // members who left keep their history; pad them so every series lines up with t
+    for (const arr of buf.v.values()) while (arr.length < buf.t.length) arr.push(null)
+    let drop = 0
+    while (drop < buf.t.length && t - buf.t[drop] > LIVE_KEEP_MS) drop++
+    if (drop) {
+      buf.t.splice(0, drop)
+      for (const arr of buf.v.values()) arr.splice(0, drop)
+    }
+  }
+  for (const id of liveEquity.keys()) if (!byLeague.has(id)) liveEquity.delete(id)
+}
+
+/**
+ * Portfolio value over the last `minutes` for every member, at most ~240 points (downsampled by taking the last
+ * sample in each bucket). Values are dollars, not P&L, so they read as "what each player is worth".
+ */
+export function liveEquityChart(leagueId: string, minutes = 60) {
+  const league = db.leagues.get(leagueId) ?? fail(404, 'League not found')
+  const span = Math.min(Math.max(Number(minutes) || 60, 5), LIVE_KEEP_MS / 60_000) * 60_000
+  const buf = liveEquity.get(league.id)
+  const t = now()
+  if (!buf || !buf.t.length) return { minutes: span / 60_000, intervalSec: LIVE_SAMPLE_MS / 1000, startingBalance: league.startingBalance, t: [], series: [] }
+  let first = 0
+  while (first < buf.t.length && t - buf.t[first] > span) first++
+  const idx: number[] = []
+  const step = Math.max(1, Math.ceil((buf.t.length - first) / 240))
+  for (let i = buf.t.length - 1; i >= first; i -= step) idx.unshift(i)
+  const series = [...buf.v.entries()]
+    .filter(([userId]) => db.members.has(memberKey(league.id, userId)))
+    .map(([userId, arr]) => ({ ...userView(userId), values: idx.map((i) => arr[i]) }))
+  return {
+    minutes: span / 60_000,
+    intervalSec: (LIVE_SAMPLE_MS / 1000) * step,
+    startingBalance: league.startingBalance,
+    t: idx.map((i) => Math.round(buf.t[i] / 1000)),
+    series,
+  }
+}

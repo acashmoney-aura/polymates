@@ -24,7 +24,7 @@ const tokenToMarket = new Map<string, string>()
 /** market id -> [ts, price] samples over the last hour, oldest first */
 const ticks = new Map<string, [number, number][]>()
 const changed = new Set<string>()
-const sockets: { ws: WebSocket; tokens: string[]; alive: boolean }[] = []
+const sockets: Slot[] = []
 let messages = 0
 
 function sample(id: string, price: number, now = Date.now()) {
@@ -72,15 +72,31 @@ function onMessage(raw: string) {
   }
 }
 
-function open(tokens: string[]) {
-  const slot = { ws: new WebSocket(WS_URL), tokens, alive: true }
-  slot.ws.onopen = () => slot.ws.send(JSON.stringify({ assets_ids: tokens, type: 'market' }))
-  slot.ws.onmessage = (e) => onMessage(String(e.data))
-  slot.ws.onclose = () => {
-    // reconnect unless resubscribe() retired this socket
-    if (slot.alive) setTimeout(() => slot.alive && (slot.ws = open(tokens).ws), 3000)
+type Slot = { ws: WebSocket; tokens: string[]; alive: boolean }
+
+/**
+ * Connects (or reconnects) a slot's socket. Reconnects reuse the same slot object, so when resubscribe() sets
+ * alive=false and closes it, nothing reconnects. (Reconnecting into a fresh slot used to orphan sockets that
+ * resubscribe() could no longer see: they kept streaming and reconnecting forever, and after a few days the
+ * server was handling ~46k messages/sec at idle.)
+ */
+function connect(slot: Slot) {
+  const ws = new WebSocket(WS_URL)
+  slot.ws = ws
+  ws.onopen = () => ws.send(JSON.stringify({ assets_ids: slot.tokens, type: 'market' }))
+  ws.onmessage = (e) => {
+    // a socket that's been replaced or retired must not keep feeding the catalog
+    if (slot.alive && slot.ws === ws) onMessage(String(e.data))
   }
-  slot.ws.onerror = () => slot.ws.close()
+  ws.onclose = () => {
+    if (slot.alive && slot.ws === ws) setTimeout(() => { if (slot.alive && slot.ws === ws) connect(slot) }, 3000)
+  }
+  ws.onerror = () => ws.close()
+}
+
+function open(tokens: string[]) {
+  const slot = { tokens, alive: true } as Slot
+  connect(slot)
   return slot
 }
 

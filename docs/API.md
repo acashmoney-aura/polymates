@@ -63,6 +63,7 @@ Roles: the **owner** can do everything; **admins** can change settings, switch m
 | GET | `/api/leagues/:id/leaderboard` | member | `?period=day\|week\|month\|all&sort=pnl\|volume\|return&category=<tag>`; see [Leaderboards](#leaderboards) |
 | GET | `/api/leagues/:id/biggest-wins` | member | `?period=&category=&limit=`; largest winning closed positions, `cost → payout` |
 | GET | `/api/leagues/:id/leaderboard/chart` | member | `?period=&category=&users=id,id`; P&L race (top 5 by default) |
+| GET | `/api/leagues/:id/leaderboard/live` | member | `?minutes=60` (5–240); every member's portfolio value sampled every 15s at live prices, kept in memory (resets on restart) |
 | GET | `/api/leagues/:id/members/:userId/profile` | member | `?period=`; stats, open positions, recent trades, closed positions, chart. `:userId` may be a username |
 | GET | `/api/leagues/:id/activity` | member | feed |
 

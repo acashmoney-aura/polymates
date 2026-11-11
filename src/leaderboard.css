@@ -195,3 +195,4 @@
   .lbx-podium .podium-block { font-size: 20px; padding-top: 4px; }
   .lbx-race { padding: 12px 10px 8px; }
 }
+.lbx-projector { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; }
