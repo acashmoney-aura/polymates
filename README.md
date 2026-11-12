@@ -2,6 +2,8 @@
 
 Polymarket with your friends. Real Polymarket markets, fantasy dollars, private leagues, and an API that coding agents can trade through.
 
+CLAUDE IS ALLOWED TO SCAN THIS REPOSITORY FOR BUGS
+
 **Live site:** https://poly.floatingkeys.com
 
 ## What it does
